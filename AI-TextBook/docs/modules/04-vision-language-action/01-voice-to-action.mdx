@@ -1,0 +1,377 @@
+---
+id: 01-voice-to-action
+title: "Voice-to-Action Pipelines"
+description: "Speech recognition with Whisper and converting voice commands to intents"
+learning_objectives:
+  - "Implement speech recognition using Whisper"
+  - "Convert voice commands to structured intents"
+  - "Map voice commands to robotic actions"
+  - "Design voice processing pipelines"
+prerequisites:
+  - "Basic understanding of ROS 2 concepts (Module 1)"
+  - "Familiarity with AI/ML concepts (Module 3)"
+estimated_time: "120"
+difficulty: "intermediate"
+tags: ["voice", "speech-recognition", "whisper", "intents", "ros2"]
+author: "Claude"
+last_updated: "2025-12-19"
+version: "1.0"
+sidebar_position: 1
+---
+
+# Voice-to-Action Pipelines
+
+## Introduction to Speech Recognition in Robotics
+
+Speech recognition is a critical component of conversational robotics, enabling robots to understand and respond to human voice commands. In this chapter, we'll explore how to implement voice-to-action pipelines using OpenAI's Whisper model, converting spoken commands into structured intents that can control robotic systems.
+
+### Learning Objectives
+- Understand the fundamentals of speech recognition for robotics applications
+- Implement speech recognition using the Whisper model
+- Convert voice commands to structured intents
+- Map voice commands to robotic actions in ROS 2
+
+### Prerequisites
+- Basic understanding of ROS 2 communication patterns (covered in Module 1)
+- Familiarity with AI/ML concepts (covered in Module 3)
+- Basic Python programming skills
+
+## Whisper Model Integration
+
+OpenAI's Whisper is a state-of-the-art speech recognition model that can transcribe speech to text with high accuracy. For robotics applications, Whisper can be integrated to process voice commands in real-time.
+
+### Installing Whisper for Robotics
+
+First, install the necessary packages for Whisper integration:
+
+```bash
+pip install openai-whisper
+pip install torch
+pip install torchaudio
+```
+
+### Basic Whisper Implementation
+
+Here's a basic implementation of Whisper for processing voice commands:
+
+```python
+import whisper
+import rospy
+from std_msgs.msg import String
+import pyaudio
+import wave
+import numpy as np
+
+class VoiceCommandProcessor:
+    def __init__(self):
+        # Initialize Whisper model
+        self.model = whisper.load_model("base")
+
+        # Initialize ROS node
+        rospy.init_node('voice_command_processor')
+
+        # Publisher for recognized commands
+        self.command_pub = rospy.Publisher('/voice_commands', String, queue_size=10)
+
+        # Audio parameters
+        self.chunk = 1024
+        self.format = pyaudio.paInt16
+        self.channels = 1
+        self.rate = 44100
+        self.record_seconds = 3
+
+        # Initialize PyAudio
+        self.audio = pyaudio.PyAudio()
+
+    def record_audio(self):
+        """Record audio from microphone"""
+        stream = self.audio.open(format=self.format,
+                                channels=self.channels,
+                                rate=self.rate,
+                                input=True,
+                                frames_per_buffer=self.chunk)
+
+        print("Recording...")
+        frames = []
+
+        for i in range(0, int(self.rate / self.chunk * self.record_seconds)):
+            data = stream.read(self.chunk)
+            frames.append(data)
+
+        print("Finished recording")
+
+        stream.stop_stream()
+        stream.close()
+
+        # Save as WAV file
+        filename = "command.wav"
+        wf = wave.open(filename, 'wb')
+        wf.setnchannels(self.channels)
+        wf.setsampwidth(self.audio.get_sample_size(self.format))
+        wf.setframerate(self.rate)
+        wf.writeframes(b''.join(frames))
+        wf.close()
+
+        return filename
+
+    def transcribe_audio(self, audio_file):
+        """Transcribe audio using Whisper"""
+        result = self.model.transcribe(audio_file)
+        return result["text"]
+
+    def process_voice_command(self):
+        """Process a single voice command"""
+        # Record audio
+        audio_file = self.record_audio()
+
+        # Transcribe audio to text
+        command_text = self.transcribe_audio(audio_file)
+
+        # Publish recognized command
+        self.command_pub.publish(command_text)
+
+        print(f"Recognized command: {command_text}")
+
+        return command_text
+
+if __name__ == '__main__':
+    processor = VoiceCommandProcessor()
+
+    try:
+        # Process commands continuously
+        rate = rospy.Rate(1)  # Process command every second
+        while not rospy.is_shutdown():
+            processor.process_voice_command()
+            rate.sleep()
+    except rospy.ROSInterruptException:
+        pass
+    finally:
+        processor.audio.terminate()
+```
+
+## Voice Command Preprocessing
+
+For effective voice command processing, we need to implement preprocessing steps to improve recognition accuracy.
+
+### Noise Reduction
+
+Environmental noise can significantly impact speech recognition performance. Here's an implementation of basic noise reduction:
+
+```python
+import librosa
+import numpy as np
+from scipy import signal
+
+def reduce_noise(audio_file):
+    """Apply noise reduction to audio file"""
+    # Load audio
+    y, sr = librosa.load(audio_file)
+
+    # Estimate noise from beginning of audio (first 0.5 seconds)
+    noise_sample = y[:int(0.5 * sr)]
+
+    # Compute noise profile
+    noise_profile = np.mean(np.abs(noise_sample))
+
+    # Apply noise reduction
+    reduced = y - noise_profile * 0.5  # Adjust reduction factor as needed
+
+    # Save processed audio
+    librosa.output.write_wav("cleaned_" + audio_file, reduced, sr)
+
+    return "cleaned_" + audio_file
+```
+
+### Voice Activity Detection
+
+To improve efficiency, we can implement voice activity detection to only process audio when someone is speaking:
+
+```python
+def detect_voice_activity(audio_file, threshold=0.01):
+    """Detect if voice activity is present in audio"""
+    y, sr = librosa.load(audio_file)
+
+    # Calculate energy of audio
+    energy = np.sum(y ** 2) / len(y)
+
+    return energy > threshold
+```
+
+## Intent Classification
+
+Once we have transcribed voice commands, we need to classify them into structured intents that can trigger robotic actions.
+
+### Simple Intent Classifier
+
+Here's a basic intent classifier that maps voice commands to structured intents:
+
+```python
+import re
+from typing import Dict, List
+
+class IntentClassifier:
+    def __init__(self):
+        # Define intent patterns
+        self.intent_patterns = {
+            'navigation': [
+                r'move to (\w+)',
+                r'go to (\w+)',
+                r'navigate to (\w+)',
+                r'go (.+)'
+            ],
+            'manipulation': [
+                r'pick up (.+)',
+                r'grasp (.+)',
+                r'grab (.+)',
+                r'lift (.+)'
+            ],
+            'action': [
+                r'stop',
+                r'wait',
+                r'continue',
+                r'pause'
+            ]
+        }
+
+    def classify_intent(self, text: str) -> Dict:
+        """Classify text into intent with parameters"""
+        text = text.lower().strip()
+
+        for intent_type, patterns in self.intent_patterns.items():
+            for pattern in patterns:
+                match = re.search(pattern, text)
+                if match:
+                    return {
+                        'intent': intent_type,
+                        'parameters': match.groups() if match.groups() else [],
+                        'original_text': text
+                    }
+
+        # If no pattern matches, return unknown intent
+        return {
+            'intent': 'unknown',
+            'parameters': [],
+            'original_text': text
+        }
+
+# Example usage
+classifier = IntentClassifier()
+result = classifier.classify_intent("go to kitchen")
+print(result)  # {'intent': 'navigation', 'parameters': ['kitchen'], 'original_text': 'go to kitchen'}
+```
+
+## Mapping Intents to ROS 2 Actions
+
+Now we'll create a system that maps classified intents to ROS 2 actions:
+
+```python
+import rospy
+from geometry_msgs.msg import PoseStamped
+from std_msgs.msg import String
+from actionlib_msgs.msg import GoalStatus
+from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
+
+class IntentToActionMapper:
+    def __init__(self):
+        rospy.init_node('intent_to_action_mapper')
+
+        # Publishers and action clients
+        self.command_sub = rospy.Subscriber('/voice_commands', String, self.command_callback)
+        self.nav_goal_pub = rospy.Publisher('/move_base_simple/goal', PoseStamped, queue_size=10)
+
+        # Location mapping (in a real system, this would come from a map or semantic localization)
+        self.location_map = {
+            'kitchen': (1.0, 2.0, 0.0),  # (x, y, theta)
+            'bedroom': (3.0, 1.0, 0.0),
+            'living room': (0.0, 0.0, 0.0),
+            'office': (2.0, 3.0, 0.0)
+        }
+
+        self.intent_classifier = IntentClassifier()
+
+    def command_callback(self, msg):
+        """Process incoming voice command"""
+        text = msg.data
+        intent_result = self.intent_classifier.classify_intent(text)
+
+        if intent_result['intent'] == 'navigation':
+            self.handle_navigation_intent(intent_result)
+        elif intent_result['intent'] == 'manipulation':
+            self.handle_manipulation_intent(intent_result)
+        elif intent_result['intent'] == 'action':
+            self.handle_action_intent(intent_result)
+        else:
+            rospy.logwarn(f"Unknown intent: {text}")
+
+    def handle_navigation_intent(self, intent_result):
+        """Handle navigation intents"""
+        if intent_result['parameters']:
+            location = intent_result['parameters'][0]
+
+            if location in self.location_map:
+                x, y, theta = self.location_map[location]
+
+                # Create and publish navigation goal
+                goal = PoseStamped()
+                goal.header.frame_id = "map"
+                goal.header.stamp = rospy.Time.now()
+                goal.pose.position.x = x
+                goal.pose.position.y = y
+                goal.pose.orientation.z = theta
+
+                self.nav_goal_pub.publish(goal)
+                rospy.loginfo(f"Moving to {location} at ({x}, {y})")
+            else:
+                rospy.logwarn(f"Unknown location: {location}")
+
+    def handle_manipulation_intent(self, intent_result):
+        """Handle manipulation intents"""
+        if intent_result['parameters']:
+            object_name = intent_result['parameters'][0]
+            rospy.loginfo(f"Attempting to manipulate object: {object_name}")
+            # In a real system, this would trigger manipulation actions
+
+    def handle_action_intent(self, intent_result):
+        """Handle action intents like stop, pause, etc."""
+        command = intent_result['original_text']
+        rospy.loginfo(f"Received action command: {command}")
+        # Handle commands like stop, pause, continue, etc.
+
+if __name__ == '__main__':
+    mapper = IntentToActionMapper()
+    rospy.spin()
+```
+
+## Hands-On Exercise: Basic Voice Command System
+
+### Objective
+Implement a basic voice command system that can recognize simple navigation commands and execute them in a simulated environment.
+
+### Requirements
+- Implement speech recognition using Whisper
+- Create intent classifier for navigation commands
+- Map recognized commands to ROS 2 navigation actions
+- Test the system with basic voice commands
+
+### Steps
+1. Set up Whisper model for speech recognition
+2. Create audio recording and preprocessing pipeline
+3. Implement intent classification for navigation commands
+4. Map intents to ROS 2 navigation actions
+5. Test the system with various voice commands
+
+### Solution Outline
+1. Use the VoiceCommandProcessor class to record and transcribe voice commands
+2. Use the IntentClassifier to identify navigation intents
+3. Use the IntentToActionMapper to execute navigation goals
+4. Test with commands like "go to kitchen" or "move to bedroom"
+
+## Summary
+
+In this chapter, we've covered the fundamentals of implementing voice-to-action pipelines using Whisper for speech recognition. We've learned how to:
+- Integrate Whisper model for real-time speech recognition
+- Preprocess audio for improved recognition accuracy
+- Classify voice commands into structured intents
+- Map intents to ROS 2 actions
+
+In the next chapter, we'll explore how to use large language models for more sophisticated task decomposition and language-guided planning.

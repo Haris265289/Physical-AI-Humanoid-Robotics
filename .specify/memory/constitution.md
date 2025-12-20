@@ -1,55 +1,56 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!-- SYNC IMPACT REPORT
+Version change: 1.0.0 → 1.1.0
+Modified principles: All principles updated to reflect AI-Native Textbook with RAG Chatbot project
+Added sections: None
+Removed sections: None
+Templates requiring updates: ⚠ pending (.specify/templates/plan-template.md, .specify/templates/spec-template.md, .specify/templates/tasks-template.md)
+Follow-up TODOs: None
+-->
+
+# AI-Native Textbook with RAG Chatbot Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Spec-Driven Content Generation
+Content must be created based on well-defined specifications using Spec-Kit Plus methodology. All textbook content follows a structured, testable approach where requirements are clearly defined before implementation.
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+### II. Technical Accuracy and Clarity
+All content must be technically accurate, clearly explained, and verifiable. Claims must be supported by evidence or citations, with no hallucinated facts, APIs, or tools.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### III. Reproducibility and Determinism
+All processes, especially the RAG system's embedding and indexing pipeline, must be deterministic and reproducible. This ensures consistent results across deployments and updates.
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### IV. AI-Native Documentation Design
+The textbook design embraces AI interaction patterns, with content structured to support RAG systems and AI comprehension while maintaining traditional readability.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### V. Constraint-Focused Development
+Development must work within free-tier service limitations (OpenAI, Neon Postgres, Qdrant Cloud) without compromising core functionality.
 
-### [PRINCIPLE_6_NAME]
+### VI. Source Integrity
+All content and code must be derived from verified sources with proper attribution. No fabricated information should be introduced into the textbook or supporting systems.
 
+### VII. RAG System Fidelity
+The RAG chatbot must strictly answer from indexed textbook content only, with proper citations to specific sections. No external knowledge or hallucinated responses are permitted.
 
-[PRINCIPLE__DESCRIPTION]
+## Additional Constraints
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+- Technology stack: Docusaurus for documentation, OpenAI Agents/ChatKit for chatbot, FastAPI for backend, Neon for metadata, Qdrant for vector storage
+- Deployment: GitHub Pages for static content, with backend services hosted separately
+- Content format: Docusaurus MDX with embedded interactive elements
+- RAG requirements: Answers must strictly derive from indexed textbook content only, with section citations
+- Performance: Response times under 3 seconds for chat queries
+- Accuracy: All claims must be backed by textbook content; selected-text-only answers when possible
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+## Development Workflow
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
-
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+- Content development follows Spec-Kit Plus: spec → plan → tasks → implementation
+- All content changes trigger RAG re-indexing
+- Pull requests must verify both content accuracy and system functionality
+- Testing includes both traditional validation and RAG functionality verification
+- RAG accuracy testing ensures responses are properly sourced from textbook content
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+This constitution governs all aspects of the AI-Native Textbook with RAG Chatbot development. All contributions must align with these principles, and any amendments require explicit approval and documentation.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Version**: 1.1.0 | **Ratified**: 2025-12-17 | **Last Amended**: 2025-12-17

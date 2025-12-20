@@ -1,0 +1,411 @@
+---
+title: Introduction to ROS 2 Architecture
+description: Learn about the fundamental architecture of ROS 2 and how it serves as the nervous system for humanoid robots, including nodes, topics, services, and actions.
+keywords: [ROS 2, architecture, nodes, topics, services, actions, DDS, humanoid robotics, middleware]
+tags: [beginner, architecture, fundamentals, ros2]
+sidebar_position: 1
+---
+
+# Introduction to ROS 2 Architecture
+
+Welcome to Module 1 of the Physical AI & Humanoid Robotics Textbook. In this chapter, you'll learn about the fundamental architecture of ROS 2 and how it serves as the nervous system for humanoid robots.
+
+## Prerequisites
+
+Before starting this chapter, you should have:
+- Basic understanding of robotics concepts (what a robot is, basic components)
+- Familiarity with software development concepts (what a process, library, and API are)
+- Understanding of network communication basics (client-server, publish-subscribe concepts)
+
+No prior ROS experience is required, as this chapter introduces the fundamental concepts from the ground up.
+
+## Learning Objectives
+- Understand the role of ROS 2 in Physical AI systems
+- Learn about nodes, topics, services, and actions
+- Explore the DDS-based communication model
+
+## The Role of ROS 2 in Physical AI Systems
+
+ROS 2 (Robot Operating System 2) is not an operating system but rather a collection of tools, libraries, and conventions that aim to simplify the task of creating complex and robust robot behavior across a wide variety of robot platforms and environments. In the context of Physical AI systems, ROS 2 serves as the middleware that connects various hardware and software components, enabling them to work together seamlessly.
+
+ROS 2 provides a framework for distributed computing where different processes (nodes) can communicate with each other through a publish-subscribe mechanism, request-reply interactions, and action-based communication. This architecture is particularly well-suited for humanoid robotics, where multiple sensors, actuators, and processing units need to coordinate in real-time.
+
+## Physical AI Integration
+
+In Physical AI systems, ROS 2 enables the integration of perception, planning, and control modules with the physical hardware. This integration is crucial for humanoid robots, which require coordination between:
+
+- Sensor systems (cameras, IMUs, force/torque sensors)
+- Actuator control systems (motors, servos)
+- Perception algorithms (computer vision, audio processing)
+- Planning algorithms (path planning, motion planning)
+- Control systems (balance control, trajectory execution)
+
+The modular architecture of ROS 2 allows these different components to be developed and tested independently, then integrated into a cohesive system.
+
+## Core Architecture Components
+
+ROS 2's architecture is built around four primary communication patterns that enable different types of interactions between nodes:
+
+### Nodes
+
+A node is a fundamental entity in ROS 2 that represents a single process. In humanoid robotics, each functional component (such as sensor processing, motion control, or path planning) typically runs in its own node. Nodes can be written in different programming languages (C++, Python, etc.) and can run on different machines as long as they are connected to the same ROS 2 network.
+
+Key characteristics of nodes:
+- Encapsulate functionality within a single process
+- Communicate with other nodes through topics, services, or actions
+- Can be started, stopped, and monitored independently
+- Can be distributed across multiple machines
+
+### Topics and Publish-Subscribe Pattern
+
+Topics enable asynchronous, one-way communication between nodes using a publish-subscribe pattern. A node publishes data to a topic, and other nodes subscribe to that topic to receive the data. This pattern is ideal for sensor data, where multiple nodes might need to receive the same information simultaneously.
+
+In humanoid robotics, topics are commonly used for:
+- Sensor data streams (camera images, laser scans, IMU readings)
+- Robot state information (joint positions, velocities)
+- Processed perception results (detected objects, navigation goals)
+
+### Services and Request-Reply Pattern
+
+Services provide synchronous, two-way communication between nodes using a request-reply pattern. A client node sends a request to a service, and the service processes the request and returns a response. This pattern is suitable for operations that require a guaranteed response, such as configuration changes or computational tasks.
+
+In humanoid robotics, services are used for:
+- Configuration and calibration tasks
+- Computational services (path planning, inverse kinematics)
+- Action requests that require confirmation
+
+### Actions
+
+Actions are a more sophisticated communication pattern designed for long-running tasks that require feedback and the ability to cancel. An action client sends a goal to an action server, which provides continuous feedback during execution and returns a result when the goal is completed (or canceled).
+
+Actions are particularly important in humanoid robotics for:
+- Navigation tasks (moving to a specific location)
+- Manipulation tasks (grasping an object)
+- Complex behaviors (walking, balancing)
+
+## DDS-Based Communication Model
+
+ROS 2 uses Data Distribution Service (DDS) as its underlying communication middleware. DDS is a standardized specification for machine-to-machine connectivity that provides a publish-subscribe pattern for real-time and embedded systems. This architecture choice gives ROS 2 several advantages over its predecessor:
+
+### Advantages of DDS in ROS 2
+
+1. **Real-time Performance**: DDS is designed for real-time systems with predictable latency and bandwidth usage, which is crucial for humanoid robotics applications where timing can affect stability and safety.
+
+2. **Scalability**: DDS supports both local and distributed communication, allowing ROS 2 systems to scale from single robots to multi-robot systems and cloud-based processing.
+
+3. **Quality of Service (QoS) Settings**: DDS provides rich QoS policies that allow fine-tuning of communication behavior, including reliability, durability, liveliness, and deadline settings.
+
+4. **Language and Platform Independence**: The DDS standard supports multiple programming languages and operating systems, enabling heterogeneous robot systems.
+
+### Quality of Service (QoS) Profiles
+
+QoS profiles in ROS 2 allow you to specify how data should be communicated between nodes. Key QoS settings include:
+
+- **Reliability**: Choose between reliable (all messages delivered) or best-effort (messages may be dropped) delivery
+- **Durability**: Specify whether late-joining subscribers should receive previously published data
+- **Deadline**: Set time constraints for data delivery
+- **History**: Control how many messages to store for late subscribers
+
+These QoS settings are particularly important in humanoid robotics where different types of data have different requirements. For example, sensor data might use best-effort delivery to ensure freshness, while configuration data would use reliable delivery to ensure accuracy.
+
+### Implementation in Humanoid Robotics
+
+In humanoid robotics applications, the DDS-based architecture provides several benefits:
+
+- **Deterministic Communication**: Critical for safety and stability in dynamic environments
+- **Fault Tolerance**: Communication can continue even if individual nodes fail
+- **Multi-platform Integration**: Different components can run on different hardware platforms
+- **Network Topology Flexibility**: Supports various network configurations from single-board computers to distributed systems
+
+## Visualizing ROS 2 Architecture
+
+Understanding the relationships between nodes, topics, services, and actions can be enhanced through visualization. Here's how you can conceptualize the ROS 2 architecture:
+
+### Node-Topic Relationship Diagram
+
+In a typical humanoid robot setup, you might have a sensor node publishing to a topic, and multiple processing nodes subscribing to that same topic:
+
+```
+[Sensor Node]
+     ↓ (publishes to topic)
+[Sensor Data Topic]
+     ↓ ↓ ↓ (subscribed by multiple nodes)
+[Perception Node] [Control Node] [Logging Node]
+```
+
+This publish-subscribe pattern allows for flexible data flow where new subscribers can be added without modifying the publisher.
+
+### Node-Service Relationship Diagram
+
+For request-reply communication, the pattern is more direct:
+
+```
+[Client Node] ←→ [Service Node]
+     (request/response)
+```
+
+The client sends a request and waits for a response from the service.
+
+### Node-Action Relationship Diagram
+
+For long-running tasks with feedback:
+
+```
+[Action Client] ←→ [Action Server]
+     ↑ (goal)          ↓ (feedback/results)
+```
+
+The action client sends a goal, receives continuous feedback during execution, and gets a final result.
+
+### Practical Example: Humanoid Robot Architecture
+
+A simplified ROS 2 architecture for a humanoid robot might look like:
+
+- **Sensor Nodes**: Camera, IMU, joint encoders
+- **Processing Nodes**: Perception, localization, path planning
+- **Control Nodes**: Motion control, balance control
+- **Topics**: Sensor data streams, robot state, commands
+- **Services**: Calibration, configuration, diagnostics
+- **Actions**: Navigation, manipulation, complex behaviors
+
+## Practical Examples
+
+Let's look at some practical examples of how these concepts apply to humanoid robotics:
+
+### Example 1: Sensor Data Distribution
+
+Consider a humanoid robot with multiple cameras. A camera driver node publishes image data to a topic, while several other nodes subscribe to process this data:
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+<Tabs>
+<TabItem value="publisher" label="Publisher (Camera Driver)" default>
+
+```python
+# Camera driver node (publisher)
+import rclpy
+from sensor_msgs.msg import Image
+
+class CameraDriver:
+    def __init__(self):
+        self.publisher = self.create_publisher(Image, 'camera/image_raw', 10)
+
+    def publish_image(self, image_data):
+        msg = Image()
+        # Fill message with image data
+        self.publisher.publish(msg)
+```
+
+</TabItem>
+<TabItem value="subscriber1" label="Subscriber (Perception)">
+
+```python
+# Perception node
+import rclpy
+from sensor_msgs.msg import Image
+
+class PerceptionNode:
+    def __init__(self):
+        self.subscription = self.create_subscription(
+            Image, 'camera/image_raw', self.image_callback, 10)
+
+    def image_callback(self, msg):
+        # Process image for object detection
+        pass
+```
+
+</TabItem>
+<TabItem value="subscriber2" label="Subscriber (Logging)">
+
+```python
+# Logging node
+import rclpy
+from sensor_msgs.msg import Image
+
+class LoggingNode:
+    def __init__(self):
+        self.subscription = self.create_subscription(
+            Image, 'camera/image_raw', self.log_image, 10)
+
+    def log_image(self, msg):
+        # Log image data for later analysis
+        pass
+```
+
+</TabItem>
+</Tabs>
+
+This demonstrates the publish-subscribe pattern where one publisher can feed multiple subscribers simultaneously.
+
+### Example 2: Service for Robot Calibration
+
+A calibration service that can be called by other nodes when needed:
+
+<Tabs>
+<TabItem value="service" label="Service Server" default>
+
+```python
+# Calibration service
+from example_interfaces.srv import Trigger
+
+class CalibrationService:
+    def __init__(self):
+        self.srv = self.create_service(Trigger, 'calibrate_robot', self.calibrate_callback)
+
+    def calibrate_callback(self, request, response):
+        # Perform calibration procedure
+        success = perform_calibration()
+        response.success = success
+        response.message = "Calibration completed" if success else "Calibration failed"
+        return response
+```
+
+</TabItem>
+<TabItem value="client" label="Service Client">
+
+```python
+# Client calling the service
+class ControlNode:
+    def __init__(self):
+        self.cli = self.create_client(Trigger, 'calibrate_robot')
+
+    def request_calibration(self):
+        while not self.cli.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('Calibration service not available')
+
+        request = Trigger.Request()
+        future = self.cli.call_async(request)
+        # Wait for response...
+```
+
+</TabItem>
+</Tabs>
+
+### Example 3: Action for Walking Behavior
+
+An action server for controlling the robot's walking behavior:
+
+<Tabs>
+<TabItem value="server" label="Action Server" default>
+
+```python
+# Walking action server
+from rclpy.action import ActionServer
+from custom_interfaces.action import Walk
+
+class WalkActionServer:
+    def __init__(self):
+        self._action_server = ActionServer(
+            self,
+            Walk,
+            'walk_forward',
+            self.execute_walk_callback)
+
+    def execute_walk_callback(self, goal_handle):
+        feedback_msg = Walk.Feedback()
+        result = Walk.Result()
+
+        # Execute walking with feedback
+        for step in range(goal_handle.request.steps):
+            if goal_handle.is_cancel_requested:
+                goal_handle.canceled()
+                result.success = False
+                return result
+
+            # Take a step
+            take_step()
+
+            # Publish feedback
+            feedback_msg.current_step = step
+            goal_handle.publish_feedback(feedback_msg)
+
+        goal_handle.succeed()
+        result.success = True
+        return result
+```
+
+</TabItem>
+<TabItem value="client" label="Action Client">
+
+```python
+# Walking action client
+from rclpy.action import ActionClient
+from custom_interfaces.action import Walk
+
+class WalkActionClient:
+    def __init__(self):
+        self._action_client = ActionClient(self, Walk, 'walk_forward')
+
+    def send_goal(self, steps):
+        self._action_client.wait_for_server()
+
+        goal_msg = Walk.Goal()
+        goal_msg.steps = steps
+
+        self._send_goal_future = self._action_client.send_goal_async(
+            goal_msg,
+            feedback_callback=self.feedback_callback)
+
+        self._send_goal_future.add_done_callback(self.goal_response_callback)
+
+    def feedback_callback(self, feedback_msg):
+        feedback = feedback_msg.feedback
+        self.get_logger().info(f'Current step: {feedback.current_step}')
+
+    def goal_response_callback(self, future):
+        goal_handle = future.result()
+        if not goal_handle.accepted:
+            self.get_logger().info('Goal rejected')
+            return
+
+        self.get_logger().info('Goal accepted')
+        self._get_result_future = goal_handle.get_result_async()
+        self._get_result_future.add_done_callback(self.get_result_callback)
+
+    def get_result_callback(self, future):
+        result = future.result().result
+        self.get_logger().info(f'Result: {result.success}')
+```
+
+</TabItem>
+</Tabs>
+
+These examples demonstrate how the different communication patterns are used in real humanoid robotics applications.
+
+## Exercises
+
+To reinforce your understanding of ROS 2 architecture concepts, try these exercises:
+
+### Exercise 1: Architecture Design
+Design a ROS 2 architecture for a humanoid robot that needs to:
+- Navigate through a room
+- Avoid obstacles
+- Pick up objects
+
+Identify what nodes you would create, what topics they would use to communicate, and which interactions would be better suited for services or actions. Draw a diagram showing the relationships between your proposed nodes.
+
+### Exercise 2: QoS Analysis
+For the following data streams in a humanoid robot, determine appropriate QoS settings and justify your choices:
+1. Joint position feedback (for control)
+2. Camera images (for perception)
+3. Robot configuration parameters
+4. Log messages
+5. Emergency stop commands
+
+### Exercise 3: Communication Pattern Selection
+For each of the following scenarios, decide whether topics, services, or actions would be most appropriate and explain why:
+1. Publishing joint encoder readings
+2. Requesting the robot to move its arm to a specific position
+3. Asking for a map of the environment
+4. Executing a walking gait pattern
+5. Requesting current robot battery status
+
+### Exercise 4: Code Implementation
+Based on the examples in this chapter, implement a simple ROS 2 publisher that publishes temperature readings to a topic, and a subscriber that logs these readings. Then extend this to create a service that returns the average temperature over the last 10 readings.
+
+## Summary
+
+This chapter introduced you to the fundamental architecture of ROS 2 and its role in Physical AI systems. You learned about the four primary communication patterns (nodes, topics, services, and actions), the DDS-based communication model, and how these concepts apply to humanoid robotics. The practical examples and exercises should help solidify your understanding of how these architectural components work together in real-world applications.
+
+This foundational knowledge will be essential as you proceed to [Chapter 2: ROS 2 Programming with Python (rclpy)](/modules/ros2-fundamentals/rclpy-control), where you'll learn to implement these architectural concepts in code, and [Chapter 3: Robot Modeling with URDF](/modules/ros2-fundamentals/urdf-modeling), where you'll learn to model robots that can be programmed using the concepts from this chapter.

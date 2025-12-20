@@ -1,0 +1,64 @@
+/**
+ * Any CSS included here will be global. The classic template
+ * bundles Infima by default. Infima is a CSS framework designed to
+ * work well for content-centric websites.
+ */
+
+/* You can override the default Infima variables here. */
+:root {
+  --ifm-color-primary: #1a73e8; /* Blue for robotics/tech theme */
+  --ifm-color-primary-dark: #1557b0;
+  --ifm-color-primary-darker: #134da3;
+  --ifm-color-primary-darkest: #0f3d85;
+  --ifm-color-primary-light: #3d8bfa;
+  --ifm-color-primary-lighter: #5ba1fb;
+  --ifm-color-primary-lightest: #7bb8fc;
+  --ifm-code-font-size: 95%;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
+}
+
+/* Additional textbook-specific styling */
+.textbook-page {
+  font-family: 'Georgia', 'Times New Roman', serif;
+  line-height: 1.6;
+}
+
+.textbook-section {
+  margin-bottom: 2rem;
+  padding: 1rem;
+  border-left: 4px solid var(--ifm-color-primary);
+  background-color: rgba(26, 115, 232, 0.03);
+}
+
+.textbook-definition {
+  background-color: #f8f9fa;
+  border-left: 4px solid #0d6efd;
+  padding: 1rem;
+  margin: 1rem 0;
+}
+
+.textbook-example {
+  background-color: #fff3cd;
+  border-left: 4px solid #ffc107;
+  padding: 1rem;
+  margin: 1rem 0;
+}
+
+.textbook-exercise {
+  background-color: #d1ecf1;
+  border-left: 4px solid #0dcaf0;
+  padding: 1rem;
+  margin: 1rem 0;
+}
+
+/* For readability concerns, you should choose a lighter palette in dark mode. */
+[data-theme='dark'] {
+  --ifm-color-primary: #25c2a0;
+  --ifm-color-primary-dark: #21af90;
+  --ifm-color-primary-darker: #1fa588;
+  --ifm-color-primary-darkest: #1a8870;
+  --ifm-color-primary-light: #29d5b0;
+  --ifm-color-primary-lighter: #32d8b4;
+  --ifm-color-primary-lightest: #4fddbf;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+}

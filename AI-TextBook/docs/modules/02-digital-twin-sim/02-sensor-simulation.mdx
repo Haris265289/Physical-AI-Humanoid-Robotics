@@ -1,0 +1,580 @@
+---
+title: Sensor Simulation in Gazebo
+description: Learn how to simulate sensors like LiDAR, depth cameras, and IMUs in Gazebo for robot perception applications.
+keywords: [Gazebo, sensor simulation, LiDAR, depth cameras, IMUs, robot perception, sensors]
+tags: [simulation, sensors, perception, gazebo, robotics]
+sidebar_position: 2
+---
+
+# Sensor Simulation in Gazebo
+
+In this chapter, you'll learn how to simulate various sensors in Gazebo, including LiDAR, depth cameras, and IMUs. Sensor simulation is crucial for developing and testing robot perception systems in a safe, controlled environment before deploying to real robots.
+
+## Prerequisites
+
+Before starting this chapter, you should have:
+- Completed [Module 2: Gazebo Physics Simulation](gazebo-physics-simulation) or have equivalent knowledge of Gazebo physics concepts
+- Understanding of basic sensor types and their applications in robotics
+- Basic knowledge of ROS 2 message types for sensor data
+- Familiarity with coordinate frames and transformations
+
+This chapter builds upon the physics simulation concepts introduced in the previous chapter, where you learned about Gazebo's physics engine and environment building.
+
+## Learning Objectives
+- Understand how to simulate different types of sensors in Gazebo
+- Configure LiDAR, depth camera, and IMU sensors with realistic parameters
+- Integrate sensor simulation with ROS 2 perception systems
+- Use sensor data for robot perception tasks
+
+## Introduction to Sensor Simulation
+
+Gazebo provides realistic sensor simulation that generates data similar to real-world sensors. This allows you to develop and test perception algorithms without access to expensive hardware or risk of damage to real sensors.
+
+### Types of Sensors in Gazebo
+
+1. **LiDAR Sensors**: Simulate laser range finders for 2D or 3D mapping
+2. **Depth Cameras**: Provide depth information along with RGB data
+3. **IMU Sensors**: Simulate inertial measurement units for orientation and acceleration
+4. **Camera Sensors**: Standard RGB cameras for visual perception
+5. **Force/Torque Sensors**: Simulate force and torque measurements at joints
+
+## LiDAR Sensor Simulation
+
+LiDAR (Light Detection and Ranging) sensors are crucial for mapping and navigation in robotics. Gazebo provides realistic LiDAR simulation with configurable parameters.
+
+### 2D LiDAR Configuration
+
+```xml
+<sensor name="laser_2d" type="ray">
+  <pose>0.2 0 0.1 0 0 0</pose>
+  <visualize>true</visualize>
+  <update_rate>10</update_rate>
+  <ray>
+    <scan>
+      <horizontal>
+        <samples>720</samples>
+        <resolution>1</resolution>
+        <min_angle>-1.570796</min_angle>  <!-- -90 degrees -->
+        <max_angle>1.570796</max_angle>   <!-- 90 degrees -->
+      </horizontal>
+    </scan>
+    <range>
+      <min>0.1</min>
+      <max>30.0</max>
+      <resolution>0.01</resolution>
+    </range>
+  </ray>
+  <plugin name="laser_publisher" filename="libgazebo_ros_ray_sensor.so">
+    <ros>
+      <namespace>/laser</namespace>
+      <remapping>~/out:=scan</remapping>
+    </ros>
+    <output_type>sensor_msgs/LaserScan</output_type>
+  </plugin>
+</sensor>
+```
+
+Key parameters:
+- `samples`: Number of rays in the laser scan
+- `min_angle`/`max_angle`: Angular range of the sensor
+- `min`/`max`: Minimum and maximum range for detection
+- `resolution`: Angular resolution of the sensor
+- `update_rate`: How frequently the sensor publishes data
+
+### 3D LiDAR Configuration (HDL-32E Style)
+
+```xml
+<sensor name="laser_3d" type="ray">
+  <pose>0.2 0 0.1 0 0 0</pose>
+  <visualize>true</visualize>
+  <update_rate>10</update_rate>
+  <ray>
+    <scan>
+      <horizontal>
+        <samples>2120</samples>
+        <resolution>1</resolution>
+        <min_angle>-3.14159</min_angle>  <!-- -180 degrees -->
+        <max_angle>3.14159</max_angle>   <!-- 180 degrees -->
+      </horizontal>
+      <vertical>
+        <samples>32</samples>
+        <resolution>1</resolution>
+        <min_angle>-0.523599</min_angle>  <!-- -30 degrees -->
+        <max_angle>0.130899</max_angle>   <!-- 7.5 degrees -->
+      </vertical>
+    </scan>
+    <range>
+      <min>0.1</min>
+      <max>120.0</max>
+      <resolution>0.01</resolution>
+    </range>
+  </ray>
+  <plugin name="os1_node" filename="libgazebo_ros_velodyne_gpu_laser.so">
+    <ros>
+      <namespace>/os1_node</namespace>
+      <remapping>~/points:=/points</remapping>
+    </ros>
+    <topic_name>points</topic_name>
+    <frame_name>os1_lidar</frame_name>
+    <min_range>0.1</min_range>
+    <max_range>120.0</max_range>
+    <gaussian_noise>0.008</gaussian_noise>
+  </plugin>
+</sensor>
+```
+
+## Depth Camera Simulation
+
+Depth cameras provide both RGB and depth information, making them valuable for 3D perception tasks.
+
+### Depth Camera Configuration
+
+```xml
+<sensor name="depth_camera" type="depth">
+  <pose>0.1 0 0.1 0 0 0</pose>
+  <visualize>true</visualize>
+  <update_rate>30</update_rate>
+  <camera name="head">
+    <horizontal_fov>1.047</horizontal_fov>  <!-- 60 degrees -->
+    <image>
+      <width>640</width>
+      <height>480</height>
+      <format>R8G8B8</format>
+    </image>
+    <clip>
+      <near>0.1</near>
+      <far>10.0</far>
+    </clip>
+    <noise>
+      <type>gaussian</type>
+      <mean>0.0</mean>
+      <stddev>0.007</stddev>
+    </noise>
+  </camera>
+  <plugin name="camera_controller" filename="libgazebo_ros_openni_kinect.so">
+    <ros>
+      <namespace>/camera</namespace>
+      <remapping>rgb/image_raw:=image_raw</remapping>
+      <remapping>rgb/camera_info:=camera_info</remapping>
+      <remapping>depth/image_raw:=depth/image_raw</remapping>
+      <remapping>depth/camera_info:=depth/camera_info</remapping>
+    </ros>
+    <output_type>sensor_msgs/Image</output_type>
+    <camera_name>camera</camera_name>
+    <frame_name>camera_depth_optical_frame</frame_name>
+    <baseline>0.1</baseline>
+    <distortion_k1>0.0</distortion_k1>
+    <distortion_k2>0.0</distortion_k2>
+    <distortion_k3>0.0</distortion_k3>
+    <distortion_t1>0.0</distortion_t1>
+    <distortion_t2>0.0</distortion_t2>
+  </plugin>
+</sensor>
+```
+
+Key parameters:
+- `horizontal_fov`: Horizontal field of view in radians
+- `image`: Width, height, and format of the captured image
+- `clip`: Near and far clipping distances
+- `noise`: Gaussian noise parameters for realistic simulation
+
+## IMU Sensor Simulation
+
+IMU (Inertial Measurement Unit) sensors provide orientation, velocity, and acceleration data, which is crucial for robot localization and control.
+
+### IMU Configuration
+
+```xml
+<sensor name="imu_sensor" type="imu">
+  <pose>0 0 0 0 0 0</pose>
+  <visualize>false</visualize>
+  <update_rate>100</update_rate>
+  <imu>
+    <angular_velocity>
+      <x>
+        <noise type="gaussian">
+          <mean>0.0</mean>
+          <stddev>2e-4</stddev>
+          <bias_mean>0.0000075</bias_mean>
+          <bias_stddev>0.0000008</bias_stddev>
+        </noise>
+      </x>
+      <y>
+        <noise type="gaussian">
+          <mean>0.0</mean>
+          <stddev>2e-4</stddev>
+          <bias_mean>0.0000075</bias_mean>
+          <bias_stddev>0.0000008</bias_stddev>
+        </noise>
+      </y>
+      <z>
+        <noise type="gaussian">
+          <mean>0.0</mean>
+          <stddev>2e-4</stddev>
+          <bias_mean>0.0000075</bias_mean>
+          <bias_stddev>0.0000008</bias_stddev>
+        </noise>
+      </z>
+    </angular_velocity>
+    <linear_acceleration>
+      <x>
+        <noise type="gaussian">
+          <mean>0.0</mean>
+          <stddev>1.7e-2</stddev>
+          <bias_mean>0.1</bias_mean>
+          <bias_stddev>0.001</bias_stddev>
+        </noise>
+      </x>
+      <y>
+        <noise type="gaussian">
+          <mean>0.0</mean>
+          <stddev>1.7e-2</stddev>
+          <bias_mean>0.1</bias_mean>
+          <bias_stddev>0.001</bias_stddev>
+        </node>
+      </y>
+      <z>
+        <noise type="gaussian">
+          <mean>0.0</mean>
+          <stddev>1.7e-2</stddev>
+          <bias_mean>0.1</bias_mean>
+          <bias_stddev>0.001</bias_stddev>
+        </noise>
+      </z>
+    </linear_acceleration>
+  </imu>
+  <plugin name="imu_plugin" filename="libgazebo_ros_imu.so">
+    <ros>
+      <namespace>/imu</namespace>
+      <remapping>~/out:=data</remapping>
+    </ros>
+    <frame_name>imu_link</frame_name>
+    <body_name>imu_body</body_name>
+    <update_rate>100</update_rate>
+    <gaussian_noise>0.0017</gaussian_noise>
+    <xyz_offset>0 0 0</xyz_offset>
+    <rpy_offset>0 0 0</rpy_offset>
+  </plugin>
+</sensor>
+```
+
+## Camera Sensor Simulation
+
+Standard RGB cameras are essential for visual perception tasks in robotics.
+
+### Camera Configuration
+
+```xml
+<sensor name="camera" type="camera">
+  <pose>0.1 0 0.1 0 0 0</pose>
+  <visualize>true</visualize>
+  <update_rate>30</update_rate>
+  <camera name="head_camera">
+    <horizontal_fov>1.047</horizontal_fov>  <!-- 60 degrees -->
+    <image>
+      <width>800</width>
+      <height>600</height>
+      <format>R8G8B8</format>
+    </image>
+    <clip>
+      <near>0.1</near>
+      <far>100</far>
+    </clip>
+    <noise>
+      <type>gaussian</type>
+      <mean>0.0</mean>
+      <stddev>0.007</stddev>
+    </noise>
+  </camera>
+  <plugin name="camera_controller" filename="libgazebo_ros_camera.so">
+    <ros>
+      <namespace>/camera</namespace>
+      <remapping>image_raw:=image_raw</remapping>
+      <remapping>camera_info:=camera_info</remapping>
+    </ros>
+    <camera_name>camera</camera_name>
+    <frame_name>camera_optical_frame</frame_name>
+    <min_depth>0.1</min_depth>
+    <max_depth>100.0</max_depth>
+  </plugin>
+</sensor>
+```
+
+## Complete Robot with Sensors Example
+
+Here's a complete example of a robot model with multiple sensors integrated:
+
+```xml
+<?xml version="1.0"?>
+<robot name="sensor_robot" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- Base link -->
+  <link name="base_link">
+    <inertial>
+      <mass value="10.0"/>
+      <origin xyz="0 0 0.2"/>
+      <inertia ixx="0.5" ixy="0.0" ixz="0.0" iyy="0.5" iyz="0.0" izz="0.5"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0.2"/>
+      <geometry>
+        <box size="0.5 0.5 0.4"/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.2"/>
+      <geometry>
+        <box size="0.5 0.5 0.4"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- IMU sensor -->
+  <sensor name="imu_sensor" type="imu">
+    <pose>0 0 0.2 0 0 0</pose>
+    <parent link="base_link"/>
+    <imu>
+      <angular_velocity>
+        <x>
+          <noise type="gaussian">
+            <mean>0.0</mean>
+            <stddev>2e-4</stddev>
+          </noise>
+        </x>
+        <y>
+          <noise type="gaussian">
+            <mean>0.0</mean>
+            <stddev>2e-4</stddev>
+          </noise>
+        </y>
+        <z>
+          <noise type="gaussian">
+            <mean>0.0</mean>
+            <stddev>2e-4</stddev>
+          </noise>
+        </z>
+      </angular_velocity>
+      <linear_acceleration>
+        <x>
+          <noise type="gaussian">
+            <mean>0.0</mean>
+            <stddev>1.7e-2</stddev>
+          </noise>
+        </x>
+        <y>
+          <noise type="gaussian">
+            <mean>0.0</mean>
+            <stddev>1.7e-2</stddev>
+          </noise>
+        </y>
+        <z>
+          <noise type="gaussian">
+            <mean>0.0</mean>
+            <stddev>1.7e-2</stddev>
+          </noise>
+        </z>
+      </linear_acceleration>
+    </imu>
+  </sensor>
+
+  <!-- Camera sensor -->
+  <sensor name="camera" type="camera">
+    <pose>0.2 0 0.3 0 0 0</pose>
+    <parent link="base_link"/>
+    <camera name="front_camera">
+      <horizontal_fov>1.047</horizontal_fov>
+      <image>
+        <width>640</width>
+        <height>480</height>
+        <format>R8G8B8</format>
+      </image>
+      <clip>
+        <near>0.1</near>
+        <far>10.0</far>
+      </clip>
+    </camera>
+  </sensor>
+
+  <!-- 2D LiDAR -->
+  <sensor name="laser_2d" type="ray">
+    <pose>0.2 0 0.3 0 0 0</pose>
+    <parent link="base_link"/>
+    <ray>
+      <scan>
+        <horizontal>
+          <samples>720</samples>
+          <resolution>1</resolution>
+          <min_angle>-1.570796</min_angle>
+          <max_angle>1.570796</max_angle>
+        </horizontal>
+      </scan>
+      <range>
+        <min>0.1</min>
+        <max>30.0</max>
+        <resolution>0.01</resolution>
+      </range>
+    </ray>
+  </sensor>
+
+</robot>
+```
+
+## Integration with ROS 2 Perception
+
+Sensor data from Gazebo is published as ROS 2 messages that can be processed by perception algorithms.
+
+### Common Sensor Message Types
+
+- **sensor_msgs/LaserScan**: For 2D LiDAR data
+- **sensor_msgs/PointCloud2**: For 3D LiDAR and depth camera point clouds
+- **sensor_msgs/Image**: For camera images
+- **sensor_msgs/CameraInfo**: For camera calibration parameters
+- **sensor_msgs/Imu**: For IMU data
+
+### Example: Processing LiDAR Data
+
+```python
+import rclpy
+from rclpy.node import Node
+from sensor_msgs.msg import LaserScan
+import numpy as np
+
+class LidarProcessor(Node):
+    def __init__(self):
+        super().__init__('lidar_processor')
+        self.subscription = self.create_subscription(
+            LaserScan,
+            '/laser/scan',
+            self.lidar_callback,
+            10)
+        self.subscription  # prevent unused variable warning
+
+    def lidar_callback(self, msg):
+        # Process the laser scan data
+        ranges = np.array(msg.ranges)
+
+        # Filter out invalid ranges
+        valid_ranges = ranges[(ranges >= msg.range_min) & (ranges <= msg.range_max)]
+
+        # Find minimum distance (closest obstacle)
+        if len(valid_ranges) > 0:
+            min_distance = np.min(valid_ranges)
+            self.get_logger().info(f'Closest obstacle: {min_distance:.2f}m')
+
+def main(args=None):
+    rclpy.init(args=args)
+    lidar_processor = LidarProcessor()
+
+    try:
+        rclpy.spin(lidar_processor)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        lidar_processor.destroy_node()
+        rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
+```
+
+## Sensor Fusion Example
+
+Combining data from multiple sensors can provide more robust perception:
+
+```python
+import rclpy
+from rclpy.node import Node
+from sensor_msgs.msg import LaserScan, Image, Imu
+from cv_bridge import CvBridge
+import cv2
+import numpy as np
+
+class SensorFusionNode(Node):
+    def __init__(self):
+        super().__init__('sensor_fusion')
+
+        # Create subscribers for different sensors
+        self.lidar_sub = self.create_subscription(
+            LaserScan, '/laser/scan', self.lidar_callback, 10)
+        self.camera_sub = self.create_subscription(
+            Image, '/camera/image_raw', self.camera_callback, 10)
+        self.imu_sub = self.create_subscription(
+            Imu, '/imu/data', self.imu_callback, 10)
+
+        self.cv_bridge = CvBridge()
+
+        # Store latest sensor readings
+        self.latest_lidar = None
+        self.latest_image = None
+        self.latest_imu = None
+
+    def lidar_callback(self, msg):
+        self.latest_lidar = msg
+        self.fuse_sensors()
+
+    def camera_callback(self, msg):
+        self.latest_image = self.cv_bridge.imgmsg_to_cv2(msg, 'bgr8')
+        self.fuse_sensors()
+
+    def imu_callback(self, msg):
+        self.latest_imu = msg
+        self.fuse_sensors()
+
+    def fuse_sensors(self):
+        # Only process if we have all sensor data
+        if self.latest_lidar and self.latest_image and self.latest_imu:
+            # Example fusion: detect obstacles in both LiDAR and camera
+            lidar_obstacles = self.process_lidar_obstacles(self.latest_lidar)
+            camera_objects = self.process_camera_objects(self.latest_image)
+
+            # Combine the results
+            self.get_logger().info(f'Fused perception: {len(lidar_obstacles)} lidar obstacles, {len(camera_objects)} camera objects')
+
+    def process_lidar_obstacles(self, scan_msg):
+        # Process LiDAR data to detect obstacles
+        ranges = np.array(scan_msg.ranges)
+        angles = np.linspace(scan_msg.angle_min, scan_msg.angle_max, len(ranges))
+
+        # Find points that are close (potential obstacles)
+        close_points = ranges < 1.0  # 1 meter threshold
+        return np.where(close_points)[0]
+
+    def process_camera_objects(self, image):
+        # Simple example: detect bright regions in the image
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        _, thresh = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY)
+
+        # Find contours
+        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        return [cv2.boundingRect(c) for c in contours if cv2.contourArea(c) > 100]
+
+def main(args=None):
+    rclpy.init(args=args)
+    sensor_fusion = SensorFusionNode()
+
+    try:
+        rclpy.spin(sensor_fusion)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        sensor_fusion.destroy_node()
+        rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
+```
+
+## Exercises
+
+### Exercise 1: LiDAR Configuration
+Configure a 2D LiDAR sensor with specific parameters for indoor navigation (range 0.1m to 10m, 180° field of view, 360 samples) and test it in a simulated environment.
+
+### Exercise 2: Depth Camera Perception
+Create a simple perception node that processes depth camera data to detect objects at different distances and publish the results.
+
+### Exercise 3: Sensor Fusion Challenge
+Implement a sensor fusion algorithm that combines LiDAR and camera data to detect and track objects in the environment.
+
+## Summary
+
+This chapter covered sensor simulation in Gazebo, including LiDAR, depth cameras, and IMUs. You learned how to configure these sensors with realistic parameters and integrate them with ROS 2 perception systems. In the next chapter, [Module 2: Unity for Robot Visualization](unity-visualization), you'll learn how to use Unity for high-fidelity robot visualization and human-robot interaction scenes.

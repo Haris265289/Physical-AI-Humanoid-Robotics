@@ -1,0 +1,801 @@
+---
+title: Navigation with Nav2
+description: Learn about Nav2 for path planning concepts and humanoid navigation basics in AI-powered robotics.
+keywords: [Nav2, navigation, path planning, humanoid robotics, AI navigation, robotics]
+tags: [navigation, ai, robotics, path-planning, humanoid]
+sidebar_position: 3
+---
+
+# Navigation with Nav2
+
+In this chapter, you'll learn about Nav2, the next-generation navigation system for robotics, focusing on path planning concepts and humanoid navigation basics. Nav2 provides a flexible and robust framework for enabling autonomous navigation in complex environments, with specific considerations for humanoid robot characteristics.
+
+## Prerequisites
+
+Before starting this chapter, you should have:
+- Completed [Module 3: Isaac ROS for Perception](isaac-ros-perception) or have equivalent knowledge of perception systems
+- Understanding of basic navigation concepts and path planning
+- Familiarity with ROS 2 and navigation message types
+- Knowledge of coordinate frames and transformations
+
+This chapter builds upon the perception concepts introduced in the previous chapter, where you learned about Isaac ROS for perception and hardware-accelerated VSLAM.
+
+## Learning Objectives
+- Understand the architecture and components of Nav2
+- Configure path planning algorithms for humanoid robots
+- Implement humanoid-specific navigation behaviors
+- Integrate perception data with navigation systems
+- Optimize navigation for complex humanoid locomotion
+
+## Introduction to Nav2
+
+Nav2 (Navigation 2) is the next-generation navigation system for ROS 2, designed to provide flexible, robust, and scalable navigation capabilities for mobile robots. Unlike its predecessor (navigation stack), Nav2 is built with modern software engineering principles and provides better modularity, performance, and extensibility.
+
+### Key Features of Nav2
+
+1. **Modular Architecture**: Pluggable components for localization, path planning, and control
+2. **Behavior Trees**: Flexible task execution and behavior management
+3. **Advanced Path Planning**: Multiple algorithms for global and local planning
+4. **Safety Features**: Built-in collision avoidance and recovery behaviors
+5. **Simulation Integration**: Seamless integration with simulation environments
+
+### Nav2 vs. Traditional Navigation
+
+| Aspect | Traditional Navigation | Nav2 |
+|--------|------------------------|------|
+| Architecture | Monolithic | Modular |
+| Flexibility | Limited | Highly configurable |
+| Task Management | Simple | Behavior Trees |
+| Safety Features | Basic | Advanced |
+| Performance | Moderate | Optimized |
+
+Nav2 provides significant improvements over traditional navigation systems, especially for complex robots like humanoids.
+
+## Nav2 Architecture and Components
+
+### Core Architecture
+
+Nav2 follows a modular architecture with several key components:
+
+```python
+import rclpy
+from rclpy.node import Node
+from nav2_msgs.action import NavigateToPose
+from geometry_msgs.msg import PoseStamped
+from action_msgs.msg import GoalStatus
+import math
+
+class Nav2Interface(Node):
+    def __init__(self):
+        super().__init__('nav2_interface')
+
+        # Create action client for navigation
+        self.nav_to_pose_client = ActionClient(
+            self, NavigateToPose, 'navigate_to_pose'
+        )
+
+        # Publishers for visualization
+        self.goal_pub = self.create_publisher(PoseStamped, '/goal_pose', 10)
+
+    def send_navigation_goal(self, x, y, theta):
+        # Create navigation goal
+        goal_msg = NavigateToPose.Goal()
+        goal_msg.pose.header.frame_id = 'map'
+        goal_msg.pose.header.stamp = self.get_clock().now().to_msg()
+        goal_msg.pose.pose.position.x = x
+        goal_msg.pose.pose.position.y = y
+        goal_msg.pose.pose.position.z = 0.0
+
+        # Convert angle to quaternion
+        goal_msg.pose.pose.orientation = self.angle_to_quaternion(theta)
+
+        # Send navigation goal
+        self.nav_to_pose_client.wait_for_server()
+        future = self.nav_to_pose_client.send_goal_async(goal_msg)
+        future.add_done_callback(self.goal_response_callback)
+
+    def angle_to_quaternion(self, angle):
+        from geometry_msgs.msg import Quaternion
+        import math
+
+        quaternion = Quaternion()
+        quaternion.x = 0.0
+        quaternion.y = 0.0
+        quaternion.z = math.sin(angle / 2.0)
+        quaternion.w = math.cos(angle / 2.0)
+
+        return quaternion
+
+    def goal_response_callback(self, future):
+        goal_handle = future.result()
+        if not goal_handle.accepted:
+            self.get_logger().info('Goal rejected')
+            return
+
+        self.get_logger().info('Goal accepted')
+        result_future = goal_handle.get_result_async()
+        result_future.add_done_callback(self.get_result_callback)
+
+    def get_result_callback(self, future):
+        result = future.result().result
+        status = future.result().status
+        if status == GoalStatus.STATUS_SUCCEEDED:
+            self.get_logger().info('Navigation succeeded')
+        else:
+            self.get_logger().info(f'Navigation failed with status: {status}')
+```
+
+### Global Planner
+
+The global planner in Nav2 computes the optimal path from start to goal:
+
+```python
+# Example custom global planner interface
+from nav2_core.global_planner import GlobalPlanner
+from geometry_msgs.msg import PoseStamped
+from nav_msgs.msg import Path
+import numpy as np
+
+class HumanoidGlobalPlanner(GlobalPlanner):
+    def __init__(self):
+        super().__init__()
+        self.costmap_ros = None
+        self.tf_buffer = None
+
+    def create_plan(self, start, goal, plan):
+        # Plan path considering humanoid-specific constraints
+        # Like step locations, balance requirements, etc.
+
+        # Use A* or Dijkstra's algorithm adapted for humanoid
+        path = self.compute_humanoid_path(start, goal)
+
+        return path
+
+    def compute_humanoid_path(self, start, goal):
+        # Custom path planning considering humanoid locomotion
+        # This would consider step spacing, balance, etc.
+        pass
+```
+
+### Local Planner
+
+The local planner handles real-time obstacle avoidance and path following:
+
+```python
+# Example local planner interface
+from nav2_core.local_planner import LocalPlanner
+from geometry_msgs.msg import Twist, PoseStamped
+from sensor_msgs.msg import LaserScan
+
+class HumanoidLocalPlanner(LocalPlanner):
+    def __init__(self):
+        super().__init__()
+        self.velocity_publisher = None
+        self.laser_subscriber = None
+
+    def calculate_velocities(self):
+        # Calculate velocities considering humanoid balance
+        # and step constraints
+        twist = Twist()
+
+        # Implement humanoid-specific velocity calculation
+        # considering bipedal locomotion constraints
+        twist.linear.x = self.calculate_linear_velocity()
+        twist.angular.z = self.calculate_angular_velocity()
+
+        return twist
+
+    def calculate_linear_velocity(self):
+        # Calculate linear velocity with humanoid constraints
+        pass
+
+    def calculate_angular_velocity(self):
+        # Calculate angular velocity with humanoid constraints
+        pass
+```
+
+## Path Planning Concepts
+
+### Global Path Planning Algorithms
+
+Nav2 supports multiple global path planning algorithms:
+
+```python
+# Example path planning implementation
+import numpy as np
+from scipy.spatial import KDTree
+
+class Nav2PathPlanner:
+    def __init__(self, costmap):
+        self.costmap = costmap
+        self.resolution = costmap.resolution
+        self.origin = costmap.origin
+
+    def plan_path(self, start, goal, algorithm='astar'):
+        if algorithm == 'astar':
+            return self.astar_plan(start, goal)
+        elif algorithm == 'dijkstra':
+            return self.dijkstra_plan(start, goal)
+        elif algorithm == 'rrt':
+            return self.rrt_plan(start, goal)
+        else:
+            raise ValueError(f"Unknown algorithm: {algorithm}")
+
+    def astar_plan(self, start, goal):
+        # A* path planning algorithm
+        from queue import PriorityQueue
+
+        # Convert to grid coordinates
+        start_grid = self.world_to_grid(start)
+        goal_grid = self.world_to_grid(goal)
+
+        # Initialize open and closed sets
+        open_set = PriorityQueue()
+        open_set.put((0, start_grid))
+        came_from = {}
+        g_score = {start_grid: 0}
+        f_score = {start_grid: self.heuristic(start_grid, goal_grid)}
+
+        while not open_set.empty():
+            current = open_set.get()[1]
+
+            if current == goal_grid:
+                return self.reconstruct_path(came_from, current)
+
+            for neighbor in self.get_neighbors(current):
+                tentative_g_score = g_score[current] + self.distance(current, neighbor)
+
+                if tentative_g_score < g_score.get(neighbor, float('inf')):
+                    came_from[neighbor] = current
+                    g_score[neighbor] = tentative_g_score
+                    f_score[neighbor] = g_score[neighbor] + self.heuristic(neighbor, goal_grid)
+                    open_set.put((f_score[neighbor], neighbor))
+
+        return []  # No path found
+
+    def heuristic(self, a, b):
+        # Euclidean distance heuristic
+        return np.sqrt((a[0] - b[0])**2 + (a[1] - b[1])**2)
+
+    def get_neighbors(self, pos):
+        # Get 8-connected neighbors
+        neighbors = []
+        for dx in [-1, 0, 1]:
+            for dy in [-1, 0, 1]:
+                if dx == 0 and dy == 0:
+                    continue
+                new_pos = (pos[0] + dx, pos[1] + dy)
+                if self.is_valid_position(new_pos):
+                    neighbors.append(new_pos)
+        return neighbors
+
+    def is_valid_position(self, pos):
+        # Check if position is valid (not in obstacle)
+        if (pos[0] < 0 or pos[0] >= self.costmap.width or
+            pos[1] < 0 or pos[1] >= self.costmap.height):
+            return False
+
+        # Check costmap value
+        index = pos[1] * self.costmap.width + pos[0]
+        cost = self.costmap.data[index]
+        return cost < 253  # Not in obstacle
+
+    def world_to_grid(self, world_pos):
+        # Convert world coordinates to grid coordinates
+        grid_x = int((world_pos[0] - self.origin[0]) / self.resolution)
+        grid_y = int((world_pos[1] - self.origin[1]) / self.resolution)
+        return (grid_x, grid_y)
+
+    def reconstruct_path(self, came_from, current):
+        # Reconstruct path from came_from dictionary
+        path = [current]
+        while current in came_from:
+            current = came_from[current]
+            path.append(current)
+        path.reverse()
+        return path
+```
+
+### Local Path Planning and Obstacle Avoidance
+
+Local path planning for real-time obstacle avoidance:
+
+```python
+class LocalPathOptimizer:
+    def __init__(self, local_costmap):
+        self.local_costmap = local_costmap
+        self.lookahead_distance = 1.0  # meters
+
+    def optimize_local_path(self, global_path, robot_pose):
+        # Optimize local path considering immediate obstacles
+        local_path = []
+
+        # Find path segment near robot
+        start_idx = self.find_nearest_path_index(global_path, robot_pose)
+
+        # Check for obstacles in local area
+        for i in range(start_idx, min(start_idx + 20, len(global_path))):
+            point = global_path[i]
+
+            # Check if point is safe to traverse
+            if self.is_safe_path_point(point):
+                local_path.append(point)
+            else:
+                # Find alternative path around obstacle
+                alternative = self.find_local_detour(point, robot_pose)
+                if alternative:
+                    local_path.extend(alternative)
+                else:
+                    # Use alternative navigation behavior
+                    break
+
+        return local_path
+
+    def is_safe_path_point(self, point):
+        # Check if path point is safe from obstacles
+        grid_point = self.world_to_grid(point)
+        cost = self.get_cost_at_point(grid_point)
+        return cost < 50  # Threshold for safety
+
+    def find_local_detour(self, obstacle_point, robot_pose):
+        # Find local detour around obstacle
+        # This would implement local obstacle avoidance
+        pass
+```
+
+## Humanoid Navigation Basics
+
+### Humanoid-Specific Navigation Challenges
+
+Humanoid robots present unique navigation challenges compared to wheeled robots:
+
+```python
+class HumanoidNavigationConstraints:
+    def __init__(self):
+        # Humanoid-specific parameters
+        self.step_length = 0.3  # Maximum step length (m)
+        self.step_height = 0.15  # Maximum step height (m)
+        self.footprint_radius = 0.2  # Footprint for collision checking
+        self.turning_radius = 0.4  # Minimum turning radius
+        self.balance_margin = 0.1  # Safety margin for balance
+
+    def is_valid_step(self, from_pose, to_pose):
+        # Check if step is valid for humanoid
+        distance = self.calculate_distance(from_pose, to_pose)
+
+        if distance > self.step_length:
+            return False, "Step too long"
+
+        height_change = abs(to_pose.position.z - from_pose.position.z)
+        if height_change > self.step_height:
+            return False, "Step too high"
+
+        return True, "Valid step"
+
+    def calculate_balance_cost(self, path):
+        # Calculate balance cost for path
+        # Considering center of mass, step patterns, etc.
+        balance_cost = 0.0
+
+        for i in range(len(path) - 1):
+            step = self.calculate_step_metrics(path[i], path[i+1])
+            balance_cost += self.evaluate_step_balance(step)
+
+        return balance_cost
+```
+
+### Bipedal Locomotion Integration
+
+Integrating navigation with bipedal locomotion:
+
+```python
+class BipedalNavigationController:
+    def __init__(self):
+        # Initialize bipedal locomotion controller
+        self.step_generator = self.initialize_step_generator()
+        self.balance_controller = self.initialize_balance_controller()
+        self.footstep_planner = self.initialize_footstep_planner()
+
+    def initialize_step_generator(self):
+        # Initialize step generation algorithms
+        # For creating stable walking patterns
+        pass
+
+    def initialize_balance_controller(self):
+        # Initialize balance control algorithms
+        # To maintain stability during navigation
+        pass
+
+    def initialize_footstep_planner(self):
+        # Initialize footstep planning algorithms
+        # To plan where feet should go
+        pass
+
+    def plan_footsteps(self, path, robot_state):
+        # Plan footstep sequence for following path
+        footsteps = []
+
+        for i in range(len(path) - 1):
+            segment = (path[i], path[i+1])
+            segment_footsteps = self.generate_footsteps_for_segment(
+                segment, robot_state
+            )
+            footsteps.extend(segment_footsteps)
+
+        return footsteps
+
+    def generate_footsteps_for_segment(self, segment, robot_state):
+        # Generate specific footsteps for path segment
+        # considering robot's current state and balance
+        pass
+```
+
+### Humanoid Path Planning
+
+Humanoid-specific path planning considerations:
+
+```python
+class HumanoidPathPlanner(Nav2PathPlanner):
+    def __init__(self, costmap):
+        super().__init__(costmap)
+        self.constraints = HumanoidNavigationConstraints()
+
+    def plan_path(self, start, goal):
+        # Plan path considering humanoid constraints
+        raw_path = super().plan_path(start, goal)
+
+        # Post-process path for humanoid compatibility
+        humanoid_path = self.adapt_path_for_humanoid(raw_path)
+
+        return humanoid_path
+
+    def adapt_path_for_humanoid(self, raw_path):
+        # Adapt path for humanoid robot capabilities
+        adapted_path = []
+
+        for i in range(len(raw_path)):
+            current_point = raw_path[i]
+
+            # Check humanoid-specific constraints
+            if i == 0:
+                adapted_path.append(current_point)
+            else:
+                prev_point = adapted_path[-1]
+
+                # Validate step for humanoid
+                is_valid, reason = self.constraints.is_valid_step(
+                    prev_point, current_point
+                )
+
+                if is_valid:
+                    adapted_path.append(current_point)
+                else:
+                    # Find alternative point that satisfies constraints
+                    alternative = self.find_humanoid_compatible_point(
+                        prev_point, current_point
+                    )
+                    if alternative:
+                        adapted_path.append(alternative)
+
+        return adapted_path
+
+    def find_humanoid_compatible_point(self, start, goal):
+        # Find point between start and goal that satisfies humanoid constraints
+        # This would implement interpolation with constraint checking
+        pass
+```
+
+## Integration with Perception Systems
+
+### Perception-Enhanced Navigation
+
+Integrating perception data with navigation decisions:
+
+```python
+class PerceptionEnhancedNavigator:
+    def __init__(self):
+        # Initialize navigation components
+        self.nav2_interface = Nav2Interface()
+        self.perception_client = self.initialize_perception_client()
+
+        # Publishers for navigation goals
+        self.goal_pub = None
+
+    def initialize_perception_client(self):
+        # Initialize client for perception system
+        # Subscribe to object detection and mapping data
+        pass
+
+    def process_perception_data(self, detections):
+        # Process perception data for navigation
+        dynamic_obstacles = self.extract_dynamic_obstacles(detections)
+        static_obstacles = self.extract_static_obstacles(detections)
+
+        # Update costmaps with perception data
+        self.update_dynamic_costmap(dynamic_obstacles)
+        self.update_static_costmap(static_obstacles)
+
+    def extract_dynamic_obstacles(self, detections):
+        # Extract moving obstacles from perception data
+        dynamic_obstacles = []
+
+        for detection in detections.detections:
+            if self.is_moving_object(detection):
+                dynamic_obstacles.append({
+                    'position': detection.position,
+                    'velocity': self.estimate_velocity(detection),
+                    'type': detection.type
+                })
+
+        return dynamic_obstacles
+
+    def is_moving_object(self, detection):
+        # Determine if object is moving
+        # This would use tracking and velocity estimation
+        pass
+
+    def navigate_with_perception_awareness(self, goal):
+        # Navigate with awareness of perception data
+        # Adjust navigation behavior based on detected objects
+
+        # Plan path considering both static and dynamic obstacles
+        path = self.plan_perception_aware_path(goal)
+
+        # Execute navigation with dynamic obstacle avoidance
+        self.execute_perception_aware_navigation(path)
+```
+
+### Semantic Navigation
+
+Using semantic information for better navigation:
+
+```python
+class SemanticNavigator:
+    def __init__(self):
+        # Initialize semantic navigation components
+        self.semantic_map = self.initialize_semantic_map()
+        self.behavior_selector = self.initialize_behavior_selector()
+
+    def initialize_semantic_map(self):
+        # Initialize semantic map with labeled regions
+        # Like "walkable areas", "narrow passages", "crowded areas", etc.
+        pass
+
+    def navigate_with_semantic_awareness(self, goal):
+        # Navigate considering semantic information
+        semantic_path = self.plan_semantic_path(goal)
+
+        # Select appropriate navigation behavior based on semantics
+        for segment in semantic_path:
+            behavior = self.behavior_selector.select_behavior(segment)
+            self.execute_behavior(segment, behavior)
+
+    def plan_semantic_path(self, goal):
+        # Plan path considering semantic information
+        # Like avoiding crowded areas, using walkable surfaces, etc.
+        pass
+```
+
+## Complete Example: Humanoid Navigation System
+
+Here's a complete example of a humanoid navigation system:
+
+```python
+import rclpy
+from rclpy.node import Node
+from geometry_msgs.msg import PoseStamped, Twist
+from nav_msgs.msg import Path, OccupancyGrid
+from sensor_msgs.msg import LaserScan
+from action_msgs.msg import GoalStatus
+from nav2_msgs.action import NavigateToPose
+from rclpy.action import ActionClient
+import math
+import numpy as np
+
+class CompleteHumanoidNavigationSystem(Node):
+    def __init__(self):
+        super().__init__('complete_humanoid_navigation_system')
+
+        # Initialize Nav2 interface
+        self.nav_to_pose_client = ActionClient(
+            self, NavigateToPose, 'navigate_to_pose'
+        )
+
+        # Initialize perception interface
+        self.perception_sub = self.create_subscription(
+            OccupancyGrid, '/perception/local_map',
+            self.perception_callback, 10
+        )
+
+        # Initialize sensor interface
+        self.laser_sub = self.create_subscription(
+            LaserScan, '/scan', self.laser_callback, 10
+        )
+
+        # Initialize humanoid-specific components
+        self.humanoid_controller = self.initialize_humanoid_controller()
+        self.path_planner = HumanoidPathPlanner(self.get_costmap())
+        self.constraints = HumanoidNavigationConstraints()
+
+        # Publishers
+        self.cmd_vel_pub = self.create_publisher(Twist, '/cmd_vel', 10)
+        self.path_pub = self.create_publisher(Path, '/humanoid_path', 10)
+
+        # Navigation state
+        self.current_goal = None
+        self.navigation_active = False
+
+    def initialize_humanoid_controller(self):
+        # Initialize humanoid-specific navigation controller
+        return BipedalNavigationController()
+
+    def get_costmap(self):
+        # Get current costmap for planning
+        # This would interface with Nav2 costmap
+        pass
+
+    def set_navigation_goal(self, x, y, theta):
+        # Set navigation goal with humanoid-specific processing
+        goal_pose = self.create_pose_stamped(x, y, theta)
+
+        # Validate goal for humanoid constraints
+        if not self.is_valid_humanoid_goal(goal_pose):
+            self.get_logger().warn('Invalid humanoid navigation goal')
+            return False
+
+        # Plan path considering humanoid constraints
+        path = self.path_planner.plan_path(
+            self.get_robot_pose(), (x, y, theta)
+        )
+
+        if not path:
+            self.get_logger().warn('No valid path found')
+            return False
+
+        # Publish planned path
+        self.publish_path(path)
+
+        # Execute navigation
+        self.execute_navigation(goal_pose)
+        return True
+
+    def is_valid_humanoid_goal(self, pose):
+        # Check if goal is valid for humanoid robot
+        # Consider step constraints, balance, etc.
+        return True  # Simplified for example
+
+    def execute_navigation(self, goal_pose):
+        # Execute navigation with humanoid-specific behaviors
+        goal_msg = NavigateToPose.Goal()
+        goal_msg.pose = goal_pose
+
+        self.nav_to_pose_client.wait_for_server()
+        future = self.nav_to_pose_client.send_goal_async(goal_msg)
+        future.add_done_callback(self.navigation_result_callback)
+
+        self.navigation_active = True
+
+    def laser_callback(self, msg):
+        # Process laser data for obstacle detection
+        if self.navigation_active:
+            # Check for immediate obstacles
+            if self.has_immediate_obstacles(msg):
+                # Execute obstacle avoidance
+                self.execute_obstacle_avoidance(msg)
+
+    def has_immediate_obstacles(self, laser_scan):
+        # Check if there are obstacles in immediate path
+        min_distance = min(laser_scan.ranges)
+        return min_distance < 0.5  # 0.5m threshold
+
+    def execute_obstacle_avoidance(self, laser_scan):
+        # Execute humanoid-specific obstacle avoidance
+        cmd_vel = Twist()
+
+        # Simple avoidance behavior
+        if self.is_obstacle_on_left(laser_scan):
+            cmd_vel.angular.z = 0.5  # Turn right
+        elif self.is_obstacle_on_right(laser_scan):
+            cmd_vel.angular.z = -0.5  # Turn left
+        else:
+            cmd_vel.linear.x = 0.0  # Stop
+
+        self.cmd_vel_pub.publish(cmd_vel)
+
+    def perception_callback(self, msg):
+        # Process perception data for enhanced navigation
+        # Update costmaps, detect dynamic obstacles, etc.
+        pass
+
+    def navigation_result_callback(self, future):
+        goal_handle = future.result()
+        result = goal_handle.get_result_async()
+        result.add_done_callback(self.navigation_finished_callback)
+
+    def navigation_finished_callback(self, future):
+        result = future.result().result
+        status = future.result().status
+
+        if status == GoalStatus.STATUS_SUCCEEDED:
+            self.get_logger().info('Navigation succeeded')
+        else:
+            self.get_logger().info(f'Navigation failed with status: {status}')
+
+        self.navigation_active = False
+
+    def create_pose_stamped(self, x, y, theta):
+        # Create PoseStamped message
+        pose = PoseStamped()
+        pose.header.stamp = self.get_clock().now().to_msg()
+        pose.header.frame_id = 'map'
+        pose.pose.position.x = x
+        pose.pose.position.y = y
+        pose.pose.position.z = 0.0
+
+        # Convert angle to quaternion
+        quaternion = self.angle_to_quaternion(theta)
+        pose.pose.orientation = quaternion
+
+        return pose
+
+    def angle_to_quaternion(self, angle):
+        from geometry_msgs.msg import Quaternion
+        quaternion = Quaternion()
+        quaternion.x = 0.0
+        quaternion.y = 0.0
+        quaternion.z = math.sin(angle / 2.0)
+        quaternion.w = math.cos(angle / 2.0)
+        return quaternion
+
+    def publish_path(self, path):
+        # Publish planned path for visualization
+        path_msg = Path()
+        path_msg.header.stamp = self.get_clock().now().to_msg()
+        path_msg.header.frame_id = 'map'
+
+        for point in path:
+            pose = PoseStamped()
+            pose.header = path_msg.header
+            pose.pose.position.x = point[0]
+            pose.pose.position.y = point[1]
+            pose.pose.position.z = 0.0
+            path_msg.poses.append(pose)
+
+        self.path_pub.publish(path_msg)
+
+    def run_navigation_system(self):
+        # Main navigation system loop
+        self.get_logger().info('Starting complete humanoid navigation system...')
+
+def main(args=None):
+    rclpy.init(args=args)
+    navigation_system = CompleteHumanoidNavigationSystem()
+
+    try:
+        # Example: Set a navigation goal
+        navigation_system.set_navigation_goal(5.0, 3.0, 0.0)
+        rclpy.spin(navigation_system)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        navigation_system.destroy_node()
+        rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
+```
+
+## Exercises
+
+### Exercise 1: Basic Nav2 Configuration
+Configure a basic Nav2 system with a map and test simple navigation goals. Verify that the system can plan and execute paths.
+
+### Exercise 2: Humanoid Navigation Simulation
+Implement a humanoid navigation system in simulation that considers step constraints and balance requirements. Test with various obstacles and terrain.
+
+### Exercise 3: Perception Integration Challenge
+Connect your Nav2 system with perception data to enable dynamic obstacle avoidance. Test how the system responds to moving obstacles.
+
+## Summary
+
+This chapter covered navigation with Nav2, including path planning concepts and humanoid navigation basics. You learned how to configure Nav2 for humanoid robots, considering their unique locomotion constraints and balance requirements. The integration of perception data with navigation systems enables more robust and adaptive navigation capabilities. Nav2's flexible architecture makes it suitable for advanced navigation tasks in complex environments. This concludes Module 3: The AI-Robot Brain (NVIDIA Isaac). You now understand how to use NVIDIA Isaac for photorealistic simulation, Isaac ROS for perception, and Nav2 for navigation in AI-powered humanoid robotics applications. These skills form the foundation for creating intelligent navigation systems that can operate effectively in real-world environments.

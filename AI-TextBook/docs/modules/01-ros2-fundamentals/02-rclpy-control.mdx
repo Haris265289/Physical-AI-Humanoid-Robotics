@@ -1,0 +1,892 @@
+---
+title: ROS 2 Programming with Python (rclpy)
+description: Learn how to write ROS 2 nodes in Python using the rclpy client library, implementing publisher-subscriber patterns, services, and actions for humanoid robotics applications.
+keywords: [ROS 2, rclpy, Python, nodes, publisher, subscriber, services, actions, programming, humanoid robotics]
+tags: [intermediate, programming, python, ros2]
+sidebar_position: 2
+---
+
+# ROS 2 Programming with Python (rclpy)
+
+In this chapter, you'll learn how to write ROS 2 nodes in Python using the rclpy client library. rclpy is the Python client library for ROS 2 that provides the standard interface for Python programs to communicate with other ROS 2 components.
+
+## Prerequisites
+
+Before starting this chapter, you should have:
+- Completed [Chapter 1: Introduction to ROS 2 Architecture](/modules/ros2-fundamentals/ros2-architecture) or have equivalent knowledge of ROS 2 concepts (nodes, topics, services, actions)
+- Basic Python programming skills (classes, functions, modules)
+- Understanding of object-oriented programming concepts
+- Familiarity with command-line tools and basic system operations
+
+This chapter builds upon the architectural concepts introduced in Chapter 1, so understanding those fundamentals is essential.
+
+## Learning Objectives
+- Write ROS 2 nodes in Python
+- Implement publisher-subscriber patterns
+- Create service and action-based control for robots
+
+## Introduction to rclpy
+
+rclpy is the Python binding for the ROS 2 client library (rcl). It provides a Pythonic interface to the core ROS 2 concepts including nodes, publishers, subscribers, services, and actions. Using rclpy, you can create ROS 2 nodes that can communicate with nodes written in other languages like C++.
+
+### Key Features of rclpy
+
+1. **Node Management**: Create and manage ROS 2 nodes with proper lifecycle management
+2. **Communication Primitives**: Support for topics, services, and actions
+3. **Parameter System**: Dynamic parameter configuration and management
+4. **Logging**: Integrated logging system compatible with ROS 2 logging infrastructure
+5. **Timers**: Support for timer-based callbacks
+6. **Clients and Services**: Request-reply communication patterns
+7. **Actions**: Long-running task management with feedback and goals
+
+### Installation and Setup
+
+Before using rclpy, you need to have a ROS 2 installation. Once ROS 2 is installed, rclpy is included in the standard distribution. You can import it in your Python scripts:
+
+```python
+import rclpy
+from rclpy.node import Node
+```
+
+### Basic Node Structure
+
+A minimal ROS 2 node in Python follows this structure:
+
+```python
+import rclpy
+from rclpy.node import Node
+
+class MinimalNode(Node):
+    def __init__(self):
+        super().__init__('minimal_node')
+        self.get_logger().info('Minimal node created')
+
+def main(args=None):
+    rclpy.init(args=args)
+    minimal_node = MinimalNode()
+    rclpy.spin(minimal_node)
+    minimal_node.destroy_node()
+    rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
+```
+
+This basic structure includes:
+- Initialization of the ROS 2 client library
+- Creation of a node instance
+- Spinning to process callbacks
+- Cleanup on exit
+
+## Writing ROS 2 Nodes in Python
+
+Creating ROS 2 nodes in Python involves extending the Node class and implementing the functionality you need. Let's explore the components of a well-structured ROS 2 node.
+
+### Node Class Structure
+
+A properly structured ROS 2 node typically includes:
+
+1. **Initialization**: Setting up the node name and any required parameters
+2. **Publisher/Subscriber Creation**: Setting up communication interfaces
+3. **Timer Setup**: For periodic tasks
+4. **Parameter Declaration**: For configurable behavior
+5. **Cleanup Methods**: For proper resource management
+
+Here's an example of a more complete node structure:
+
+```python
+import rclpy
+from rclpy.node import Node
+from std_msgs.msg import String
+
+class RobotControllerNode(Node):
+    def __init__(self):
+        # Initialize the node with a name
+        super().__init__('robot_controller')
+
+        # Declare parameters with default values
+        self.declare_parameter('control_frequency', 10)
+        self.declare_parameter('robot_name', 'my_robot')
+
+        # Get parameter values
+        self.control_frequency = self.get_parameter('control_frequency').value
+        self.robot_name = self.get_parameter('robot_name').value
+
+        # Create a publisher
+        self.publisher = self.create_publisher(String, 'robot_status', 10)
+
+        # Create a subscriber
+        self.subscription = self.create_subscription(
+            String,
+            'robot_commands',
+            self.command_callback,
+            10)
+
+        # Create a timer for periodic tasks
+        self.timer = self.create_timer(1.0 / self.control_frequency, self.control_loop)
+
+        self.get_logger().info(f'Robot controller node initialized for {self.robot_name}')
+
+    def command_callback(self, msg):
+        """Process incoming commands"""
+        self.get_logger().info(f'Received command: {msg.data}')
+        # Process the command and update robot state
+
+    def control_loop(self):
+        """Periodic control loop"""
+        # Perform control calculations
+        status_msg = String()
+        status_msg.data = f'{self.robot_name} is operating normally'
+        self.publisher.publish(status_msg)
+
+    def destroy_node(self):
+        """Cleanup when node is destroyed"""
+        self.get_logger().info('Shutting down robot controller')
+        super().destroy_node()
+
+def main(args=None):
+    rclpy.init(args=args)
+
+    robot_controller = RobotControllerNode()
+
+    try:
+        rclpy.spin(robot_controller)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        robot_controller.destroy_node()
+        rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
+```
+
+### Node Best Practices
+
+When writing ROS 2 nodes in Python, consider these best practices:
+
+1. **Use Meaningful Names**: Choose descriptive node names that indicate their function
+2. **Parameterize Behavior**: Use ROS 2 parameters for configurable settings
+3. **Handle Exceptions**: Implement proper error handling
+4. **Log Appropriately**: Use the built-in logger for debugging and monitoring
+5. **Manage Resources**: Properly clean up publishers, subscribers, and other resources
+6. **Follow Naming Conventions**: Use consistent naming for topics, services, and parameters
+
+### Node Lifecycle
+
+ROS 2 nodes have a well-defined lifecycle:
+
+1. **Unconfigured**: Node is created but not yet configured
+2. **Inactive**: Node is configured but not executing
+3. **Active**: Node is executing and processing callbacks
+4. **Finalized**: Node is shutting down and cleaning up
+
+Understanding the lifecycle is important for complex systems that need to manage node states dynamically.
+
+## Publisher-Subscriber Patterns
+
+The publish-subscribe pattern is the most common communication method in ROS 2. It enables asynchronous, one-way data flow between nodes. Publishers send messages to topics, and subscribers receive messages from topics. This decouples the sender and receiver, allowing for flexible system architectures.
+
+### Creating Publishers
+
+To create a publisher in rclpy, use the `create_publisher()` method:
+
+```python
+import rclpy
+from rclpy.node import Node
+from std_msgs.msg import String, Int32
+
+class DataPublisher(Node):
+    def __init__(self):
+        super().__init__('data_publisher')
+
+        # Create publishers with different message types
+        self.string_publisher = self.create_publisher(String, 'data_stream', 10)
+        self.counter_publisher = self.create_publisher(Int32, 'counter_topic', 10)
+
+        # Create a timer to periodically publish data
+        self.counter = 0
+        self.timer = self.create_timer(0.5, self.publish_data)  # Publish every 0.5 seconds
+
+    def publish_data(self):
+        # Create and publish a string message
+        string_msg = String()
+        string_msg.data = f'Data packet {self.counter}'
+        self.string_publisher.publish(string_msg)
+
+        # Create and publish an integer message
+        int_msg = Int32()
+        int_msg.data = self.counter
+        self.counter_publisher.publish(int_msg)
+
+        self.get_logger().info(f'Published: {string_msg.data}')
+        self.counter += 1
+
+def main(args=None):
+    rclpy.init(args=args)
+    publisher = DataPublisher()
+
+    try:
+        rclpy.spin(publisher)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        publisher.destroy_node()
+        rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
+```
+
+### Creating Subscribers
+
+To create a subscriber in rclpy, use the `create_subscription()` method:
+
+```python
+import rclpy
+from rclpy.node import Node
+from std_msgs.msg import String, Int32
+
+class DataSubscriber(Node):
+    def __init__(self):
+        super().__init__('data_subscriber')
+
+        # Create subscribers for different topics
+        self.string_subscriber = self.create_subscription(
+            String,
+            'data_stream',
+            self.string_callback,
+            10)
+
+        self.counter_subscriber = self.create_subscription(
+            Int32,
+            'counter_topic',
+            self.counter_callback,
+            10)
+
+        # Set QoS profile if needed (e.g., for real-time applications)
+        from rclpy.qos import QoSProfile
+        qos_profile = QoSProfile(depth=10)
+
+        self.get_logger().info('Data subscriber initialized')
+
+    def string_callback(self, msg):
+        self.get_logger().info(f'Received string: {msg.data}')
+
+    def counter_callback(self, msg):
+        self.get_logger().info(f'Received counter: {msg.data}')
+
+def main(args=None):
+    rclpy.init(args=args)
+    subscriber = DataSubscriber()
+
+    try:
+        rclpy.spin(subscriber)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        subscriber.destroy_node()
+        rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
+```
+
+### Quality of Service (QoS) Settings
+
+When creating publishers and subscribers, you can specify Quality of Service settings to control communication behavior:
+
+```python
+from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy
+
+# Create a QoS profile for reliable communication
+reliable_qos = QoSProfile(
+    depth=10,
+    reliability=ReliabilityPolicy.RELIABLE,  # All messages will be delivered
+    durability=DurabilityPolicy.VOLATILE,    # Don't keep messages for late-joining subscribers
+)
+
+# Create a QoS profile for best-effort communication
+best_effort_qos = QoSProfile(
+    depth=5,
+    reliability=ReliabilityPolicy.BEST_EFFORT,  # Messages may be dropped
+    durability=DurabilityPolicy.VOLATILE,
+)
+
+# Use the QoS profiles when creating publishers/subscribers
+publisher = node.create_publisher(String, 'topic_name', reliable_qos)
+subscriber = node.create_subscription(String, 'topic_name', callback, best_effort_qos)
+```
+
+### Publisher-Subscriber in Humanoid Robotics
+
+In humanoid robotics applications, publisher-subscriber patterns are used extensively:
+
+1. **Sensor Data Streams**: Joint encoders, IMU data, camera feeds
+2. **Robot State Information**: Current position, joint angles, battery status
+3. **Control Commands**: Desired joint positions, walking commands
+4. **Perception Results**: Detected objects, recognized speech, planned paths
+
+The decoupled nature of publish-subscribe allows multiple perception nodes to consume sensor data simultaneously, or multiple control nodes to monitor robot state, making the system more modular and maintainable.
+
+## Service and Action-Based Control
+
+While publisher-subscriber patterns handle asynchronous, one-way communication, services and actions provide request-response patterns for more complex interactions.
+
+### Services in ROS 2
+
+Services provide synchronous request-response communication between nodes. A service client sends a request to a service server, which processes the request and returns a response.
+
+#### Creating a Service Server
+
+```python
+import rclpy
+from rclpy.node import Node
+from example_interfaces.srv import AddTwoInts
+
+class MinimalService(Node):
+    def __init__(self):
+        super().__init__('minimal_service')
+        self.srv = self.create_service(AddTwoInts, 'add_two_ints', self.add_two_ints_callback)
+
+    def add_two_ints_callback(self, request, response):
+        response.sum = request.a + request.b
+        self.get_logger().info(f'Returning {request.a} + {request.b} = {response.sum}')
+        return response
+
+def main(args=None):
+    rclpy.init(args=args)
+
+    minimal_service = MinimalService()
+
+    rclpy.spin(minimal_service)
+
+    rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
+```
+
+#### Creating a Service Client
+
+```python
+import rclpy
+from rclpy.node import Node
+from example_interfaces.srv import AddTwoInts
+
+class MinimalClient(Node):
+    def __init__(self):
+        super().__init__('minimal_client')
+        self.cli = self.create_client(AddTwoInts, 'add_two_ints')
+
+        while not self.cli.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('Service not available, waiting again...')
+
+        self.req = AddTwoInts.Request()
+
+    def send_request(self, a, b):
+        self.req.a = a
+        self.req.b = b
+        future = self.cli.call_async(self.req)
+        return future
+
+def main(args=None):
+    rclpy.init(args=args)
+
+    minimal_client = MinimalClient()
+    future = minimal_client.send_request(1, 2)
+
+    while rclpy.ok():
+        rclpy.spin_once(minimal_client)
+        if future.done():
+            try:
+                response = future.result()
+                minimal_client.get_logger().info(
+                    f'Result of add_two_ints: {response.sum}')
+            except Exception as e:
+                minimal_client.get_logger().info(f'Service call failed: {e}')
+            break
+
+    minimal_client.destroy_node()
+    rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
+```
+
+### Actions in ROS 2
+
+Actions are designed for long-running tasks that require feedback and the ability to cancel. They're ideal for operations like navigation, manipulation, or calibration.
+
+#### Creating an Action Server
+
+First, you'll need to define a custom action message. Here's an example action definition (typically in `action/Walk.action`):
+
+```
+# Goal: Number of steps to take
+int32 steps
+---
+# Result: Success status
+bool success
+string message
+---
+# Feedback: Current progress
+int32 current_step
+string status
+```
+
+Now the action server implementation:
+
+```python
+import rclpy
+from rclpy.action import ActionServer, CancelResponse, GoalResponse
+from rclpy.node import Node
+from rclpy.executors import MultiThreadedExecutor
+from rclpy.callback_groups import ReentrantCallbackGroup
+
+# Assuming we have a custom action defined as Walk
+# from my_robot_msgs.action import Walk
+
+class WalkActionServer(Node):
+    def __init__(self):
+        super().__init__('walk_action_server')
+
+        # Create action server with callback group for reentrancy
+        self._action_server = ActionServer(
+            self,
+            Walk,  # Custom action type
+            'walk_forward',
+            execute_callback=self.execute_callback,
+            callback_group=ReentrantCallbackGroup(),
+            goal_callback=self.goal_callback,
+            cancel_callback=self.cancel_callback)
+
+    def goal_callback(self, goal_request):
+        """Accept or reject a goal."""
+        self.get_logger().info('Received goal request')
+        return GoalResponse.ACCEPT
+
+    def cancel_callback(self, goal_handle):
+        """Accept or reject a cancel request."""
+        self.get_logger().info('Received cancel request')
+        return CancelResponse.ACCEPT
+
+    async def execute_callback(self, goal_handle):
+        """Execute the goal."""
+        self.get_logger().info('Executing goal...')
+
+        # Feedback and result messages
+        feedback_msg = Walk.Feedback()
+        result = Walk.Result()
+
+        # Simulate walking steps
+        for i in range(1, goal_handle.request.steps + 1):
+            # Check if there's a cancel request
+            if goal_handle.is_cancel_requested:
+                goal_handle.canceled()
+                result.success = False
+                result.message = 'Goal canceled'
+                self.get_logger().info('Goal canceled')
+                return result
+
+            # Simulate taking a step
+            feedback_msg.current_step = i
+            feedback_msg.status = f'Step {i}/{goal_handle.request.steps}'
+            goal_handle.publish_feedback(feedback_msg)
+
+            # Simulate time for each step (in a real robot, this would involve actual movement)
+            await rclpy.sleep(1.0)
+
+        # Complete successfully
+        goal_handle.succeed()
+        result.success = True
+        result.message = f'Walked {goal_handle.request.steps} steps successfully'
+        self.get_logger().info(f'Goal completed: {result.message}')
+
+        return result
+
+def main(args=None):
+    rclpy.init(args=args)
+    walk_action_server = WalkActionServer()
+
+    executor = MultiThreadedExecutor()
+    executor.add_node(walk_action_server)
+
+    try:
+        executor.spin()
+    finally:
+        walk_action_server.destroy_node()
+        rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
+```
+
+#### Creating an Action Client
+
+```python
+import rclpy
+from rclpy.action import ActionClient
+from rclpy.node import Node
+
+# Assuming we have a custom action defined as Walk
+# from my_robot_msgs.action import Walk
+
+class WalkActionClient(Node):
+    def __init__(self):
+        super().__init__('walk_action_client')
+        self._action_client = ActionClient(self, Walk, 'walk_forward')
+
+    def send_goal(self, steps):
+        # Wait for the action server to be available
+        self._action_client.wait_for_server()
+
+        # Create a goal message
+        goal_msg = Walk.Goal()
+        goal_msg.steps = steps
+
+        # Send the goal and get a future
+        self._send_goal_future = self._action_client.send_goal_async(
+            goal_msg,
+            feedback_callback=self.feedback_callback)
+
+        self._send_goal_future.add_done_callback(self.goal_response_callback)
+
+    def goal_response_callback(self, future):
+        goal_handle = future.result()
+        if not goal_handle.accepted:
+            self.get_logger().info('Goal rejected :(')
+            return
+
+        self.get_logger().info('Goal accepted :)')
+
+        self._get_result_future = goal_handle.get_result_async()
+        self._get_result_future.add_done_callback(self.get_result_callback)
+
+    def feedback_callback(self, feedback_msg):
+        feedback = feedback_msg.feedback
+        self.get_logger().info(f'Received feedback: {feedback.status}')
+
+    def get_result_callback(self, future):
+        result = future.result().result
+        self.get_logger().info(f'Result: {result.message}')
+        rclpy.shutdown()
+
+def main(args=None):
+    rclpy.init(args=args)
+
+    action_client = WalkActionClient()
+
+    # Send a goal to walk 5 steps
+    action_client.send_goal(5)
+
+    rclpy.spin(action_client)
+
+if __name__ == '__main__':
+    main()
+```
+
+### When to Use Each Communication Pattern
+
+- **Topics (Publish-Subscribe)**: Use for continuous data streams like sensor readings, robot state, or logging
+- **Services**: Use for single request-response interactions like configuration changes, computations, or triggering specific actions
+- **Actions**: Use for long-running tasks that need feedback or cancellation like navigation, manipulation, or calibration
+
+In humanoid robotics, this might mean:
+- Using topics for joint states and IMU data
+- Using services for calibration or parameter updates
+- Using actions for walking, grasping, or navigation tasks
+
+## Practical Examples
+
+Let's look at practical examples that demonstrate how to apply rclpy concepts to humanoid robotics problems.
+
+### Example 1: Joint State Publisher
+
+A practical example of a publisher that simulates joint state data for a humanoid robot:
+
+```python
+import rclpy
+from rclpy.node import Node
+from sensor_msgs.msg import JointState
+from std_msgs.msg import Header
+import math
+import time
+
+class JointStatePublisher(Node):
+    def __init__(self):
+        super().__init__('joint_state_publisher')
+
+        # Create publisher for joint states
+        self.publisher = self.create_publisher(JointState, '/joint_states', 10)
+
+        # Define humanoid robot joint names
+        self.joint_names = [
+            'left_hip_joint', 'left_knee_joint', 'left_ankle_joint',
+            'right_hip_joint', 'right_knee_joint', 'right_ankle_joint',
+            'left_shoulder_joint', 'left_elbow_joint',
+            'right_shoulder_joint', 'right_elbow_joint'
+        ]
+
+        # Create a timer to publish joint states at 50 Hz
+        self.timer = self.create_timer(0.02, self.publish_joint_states)
+        self.time = 0.0
+
+        self.get_logger().info('Joint state publisher started')
+
+    def publish_joint_states(self):
+        # Create joint state message
+        msg = JointState()
+        msg.header = Header()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.header.frame_id = 'base_link'
+
+        msg.name = self.joint_names
+        msg.position = []
+        msg.velocity = []
+        msg.effort = []
+
+        # Generate sinusoidal joint positions for demonstration
+        for i, name in enumerate(self.joint_names):
+            # Create different movement patterns for different joint groups
+            if 'hip' in name or 'knee' in name:
+                # Leg joints follow a walking pattern
+                position = 0.2 * math.sin(self.time * 2 + i)
+            elif 'shoulder' in name:
+                # Arm joints move in coordination
+                position = 0.5 * math.sin(self.time * 1.5 + i)
+            else:
+                # Other joints
+                position = 0.1 * math.sin(self.time + i)
+
+            msg.position.append(position)
+            msg.velocity.append(0.0)  # For simplicity
+            msg.effort.append(0.0)    # For simplicity
+
+        self.publisher.publish(msg)
+        self.time += 0.02
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = JointStatePublisher()
+
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
+```
+
+### Example 2: Robot Controller with Service Interface
+
+A controller node that provides services for controlling robot behavior:
+
+```python
+import rclpy
+from rclpy.node import Node
+from rclpy.qos import QoSProfile
+from std_msgs.msg import String
+from example_interfaces.srv import Trigger
+
+class RobotController(Node):
+    def __init__(self):
+        super().__init__('robot_controller')
+
+        # Create service for emergency stop
+        self.emergency_stop_service = self.create_service(
+            Trigger, 'emergency_stop', self.emergency_stop_callback)
+
+        # Create service for robot reset
+        self.reset_service = self.create_service(
+            Trigger, 'robot_reset', self.reset_callback)
+
+        # Create publisher for robot status
+        self.status_publisher = self.create_publisher(String, 'robot_status', 10)
+
+        # Robot state
+        self.robot_enabled = True
+        self.get_logger().info('Robot controller initialized')
+
+    def emergency_stop_callback(self, request, response):
+        self.get_logger().warn('EMERGENCY STOP ACTIVATED!')
+        self.robot_enabled = False
+
+        status_msg = String()
+        status_msg.data = 'EMERGENCY_STOP'
+        self.status_publisher.publish(status_msg)
+
+        response.success = True
+        response.message = 'Robot stopped for safety'
+        return response
+
+    def reset_callback(self, request, response):
+        self.get_logger().info('Resetting robot...')
+        self.robot_enabled = True
+
+        status_msg = String()
+        status_msg.data = 'RESET'
+        self.status_publisher.publish(status_msg)
+
+        response.success = True
+        response.message = 'Robot reset and enabled'
+        return response
+
+def main(args=None):
+    rclpy.init(args=args)
+    controller = RobotController()
+
+    try:
+        rclpy.spin(controller)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        controller.destroy_node()
+        rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
+```
+
+### Example 3: Complex Behavior with Actions
+
+An action server that manages a complex humanoid behavior like balancing:
+
+```python
+import rclpy
+from rclpy.action import ActionServer
+from rclpy.node import Node
+from rclpy.qos import QoSProfile
+from std_msgs.msg import Float64
+
+# Custom action interface (in practice, you'd define this in an .action file)
+# For this example, we'll simulate the interface
+class BalanceAction:
+    class Goal:
+        def __init__(self):
+            self.duration = 0.0  # Duration to maintain balance in seconds
+
+    class Feedback:
+        def __init__(self):
+            self.tilt_angle = 0.0
+            self.balance_effort = 0.0
+            self.status = ""
+
+    class Result:
+        def __init__(self):
+            self.success = False
+            self.message = ""
+
+class BalanceActionServer(Node):
+    def __init__(self):
+        super().__init__('balance_action_server')
+
+        # In practice, this would be a custom action type
+        # self._action_server = ActionServer(
+        #     self,
+        #     BalanceAction,
+        #     'maintain_balance',
+        #     execute_callback=self.execute_callback,
+        #     goal_callback=self.goal_callback,
+        #     cancel_callback=self.cancel_callback)
+
+    # For this example, we'll provide the implementation structure
+    # without actual action implementation to avoid missing dependencies
+    def execute_callback(self, goal_handle):
+        """Execute the balance goal."""
+        self.get_logger().info('Starting balance maintenance...')
+
+        feedback_msg = BalanceAction.Feedback()
+        result = BalanceAction.Result()
+
+        start_time = self.get_clock().now()
+        target_time = goal_handle.request.duration
+
+        # Simulate balance maintenance loop
+        while rclpy.ok():
+            current_time = self.get_clock().now()
+            elapsed = (current_time - start_time).nanoseconds / 1e9
+
+            if elapsed >= target_time:
+                break
+
+            # Simulate balance feedback
+            import random
+            feedback_msg.tilt_angle = random.uniform(-0.1, 0.1)
+            feedback_msg.balance_effort = random.uniform(0.3, 0.7)
+            feedback_msg.status = f'Balancing... {elapsed:.1f}s / {target_time}s'
+
+            goal_handle.publish_feedback(feedback_msg)
+
+            # Check for cancellation
+            if goal_handle.is_cancel_requested:
+                goal_handle.canceled()
+                result.success = False
+                result.message = 'Balance maintenance cancelled'
+                return result
+
+            # Small delay to prevent busy waiting
+            time.sleep(0.1)
+
+        # Successfully completed
+        goal_handle.succeed()
+        result.success = True
+        result.message = f'Balance maintained for {target_time} seconds'
+
+        return result
+
+def main(args=None):
+    rclpy.init(args=args)
+    balance_server = BalanceActionServer()
+
+    try:
+        rclpy.spin(balance_server)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        balance_server.destroy_node()
+        rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
+```
+
+## Exercises
+
+To reinforce your understanding of ROS 2 programming with rclpy, try these exercises:
+
+### Exercise 1: Simple Publisher-Subscriber Pair
+Create a publisher node that publishes temperature readings (as Float64 messages) to a topic called "temperature". Create a subscriber node that subscribes to this topic and logs the received temperature values. Add a parameter to the publisher to control the publishing frequency.
+
+### Exercise 2: Service for Robot Control
+Implement a service server that accepts a robot command (as a string) and returns whether the command was executed successfully. Create a client that calls this service with different commands like "move_forward", "turn_left", "stop", etc.
+
+### Exercise 3: Action for Robot Movement
+Design and implement an action server for moving a robot to a specific position. The goal should include x, y coordinates, the feedback should include current position and distance to target, and the result should indicate success or failure.
+
+### Exercise 4: Parameter Management
+Create a node that uses ROS 2 parameters to control its behavior. The node should have parameters for:
+- Publishing frequency
+- Robot name
+- Maximum velocity
+- Safety limits
+
+Implement the node to reconfigure its behavior when parameters change at runtime.
+
+### Exercise 5: Integrated Robot Node
+Combine everything you've learned to create a comprehensive robot node that:
+- Publishes robot status information
+- Subscribes to command topics
+- Provides services for configuration
+- Implements actions for complex behaviors
+- Uses parameters for runtime configuration
+
+## Summary
+
+This chapter covered the fundamentals of ROS 2 programming using Python and the rclpy client library. You learned how to create nodes, implement publisher-subscriber patterns, work with services and actions, and apply these concepts to humanoid robotics problems. The practical examples and exercises should help you develop the skills needed to build real ROS 2 applications for humanoid robots.
+
+This chapter builds upon the architectural concepts introduced in [Chapter 1: Introduction to ROS 2 Architecture](/modules/ros2-fundamentals/ros2-architecture), where you learned about the fundamental communication patterns. In the next chapter, [Chapter 3: Robot Modeling with URDF](/modules/ros2-fundamentals/urdf-modeling), you'll learn how to model robots using the Unified Robot Description Format, which is essential for simulating and controlling the robot nodes you've learned to program in this chapter.

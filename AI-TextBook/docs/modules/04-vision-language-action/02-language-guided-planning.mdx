@@ -1,0 +1,641 @@
+---
+id: 02-language-guided-planning
+title: "Language-Guided Planning"
+description: "Using LLMs for task decomposition and mapping natural language to ROS 2 actions"
+learning_objectives:
+  - "Integrate LLMs for task decomposition"
+  - "Map natural language to ROS 2 actions"
+  - "Create context-aware planning systems"
+  - "Implement language-guided behavior"
+prerequisites:
+  - "Basic understanding of ROS 2 concepts (Module 1)"
+  - "Familiarity with AI/ML concepts (Module 3)"
+  - "Completion of Voice-to-Action chapter"
+estimated_time: "150"
+difficulty: "advanced"
+tags: ["llm", "task-decomposition", "natural-language", "ros2-actions", "planning"]
+author: "Claude"
+last_updated: "2025-12-19"
+version: "1.0"
+sidebar_position: 2
+---
+
+# Language-Guided Planning
+
+## Introduction to Language-Guided Planning in Robotics
+
+Language-guided planning represents a sophisticated approach to robotics where large language models (LLMs) are used to interpret natural language commands and decompose complex tasks into executable robotic actions. This approach enables robots to understand high-level human instructions and execute them through detailed planning and execution.
+
+### Learning Objectives
+- Understand how to integrate LLMs for task decomposition in robotics
+- Learn techniques for mapping natural language to ROS 2 actions
+- Create context-aware planning systems that consider the environment
+- Implement language-guided behavior in robotic systems
+
+### Prerequisites
+- Basic understanding of ROS 2 communication patterns (covered in Module 1)
+- Familiarity with AI/ML concepts (covered in Module 3)
+- Understanding of voice-to-action pipelines (covered in Chapter 1)
+
+## Large Language Model Integration
+
+Integrating LLMs into robotic systems requires careful consideration of how to structure prompts and interpret responses for robotic applications.
+
+### Setting up LLM Integration
+
+Here's a basic implementation of LLM integration for robotics:
+
+```python
+import openai
+import rospy
+from std_msgs.msg import String
+from typing import Dict, List, Any
+import json
+
+class LLMRobotPlanner:
+    def __init__(self, api_key: str):
+        # Set up OpenAI API
+        openai.api_key = api_key
+
+        # Initialize ROS node
+        rospy.init_node('llm_robot_planner')
+
+        # Publishers and subscribers
+        self.task_sub = rospy.Subscriber('/natural_language_tasks', String, self.task_callback)
+        self.action_pub = rospy.Publisher('/planned_actions', String, queue_size=10)
+
+        # Robot capabilities (in a real system, this would come from robot description)
+        self.robot_capabilities = {
+            "navigation": ["move_to_location", "navigate_to"],
+            "manipulation": ["pick_up", "place_object", "grasp", "release"],
+            "perception": ["detect_object", "find_person", "scan_area"],
+            "communication": ["speak", "listen", "respond"]
+        }
+
+    def task_callback(self, msg):
+        """Process incoming natural language task"""
+        natural_language_task = msg.data
+        plan = self.generate_plan(natural_language_task)
+        self.execute_plan(plan)
+
+    def generate_plan(self, task_description: str) -> List[Dict]:
+        """Generate a plan from natural language task using LLM"""
+        # Create a structured prompt for the LLM
+        prompt = f"""
+        You are a robot task planner. Given a natural language task, decompose it into a sequence of specific robotic actions.
+
+        Robot capabilities: {json.dumps(self.robot_capabilities)}
+
+        Task: {task_description}
+
+        Please return a JSON list of actions with the following format:
+        [
+            {{
+                "action": "action_name",
+                "parameters": {{
+                    "param1": "value1",
+                    "param2": "value2"
+                }},
+                "description": "Brief description of what this action does"
+            }}
+        ]
+
+        Only return the JSON list, nothing else.
+        """
+
+        try:
+            response = openai.ChatCompletion.create(
+                model="gpt-3.5-turbo",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.1
+            )
+
+            # Extract the JSON response
+            plan_text = response.choices[0].message.content.strip()
+
+            # Clean up any markdown formatting
+            if plan_text.startswith('```json'):
+                plan_text = plan_text[7:]  # Remove ```json
+            if plan_text.endswith('```'):
+                plan_text = plan_text[:-3]  # Remove ```
+
+            plan = json.loads(plan_text)
+            return plan
+        except Exception as e:
+            rospy.logerr(f"Error generating plan: {e}")
+            return []
+
+    def execute_plan(self, plan: List[Dict]):
+        """Execute the planned actions"""
+        for action in plan:
+            rospy.loginfo(f"Executing action: {action['action']}")
+            self.action_pub.publish(json.dumps(action))
+            # In a real system, you would call specific ROS services/actions here
+
+if __name__ == '__main__':
+    # Initialize with your OpenAI API key
+    api_key = rospy.get_param('~openai_api_key', 'your-api-key-here')
+    planner = LLMRobotPlanner(api_key)
+
+    try:
+        rospy.spin()
+    except rospy.ROSInterruptException:
+        pass
+```
+
+## Task Decomposition with LLMs
+
+Task decomposition is the process of breaking down complex natural language commands into a sequence of simpler, executable actions.
+
+### Advanced Task Decomposition
+
+Here's an enhanced implementation that considers context and constraints:
+
+```python
+import openai
+import rospy
+from std_msgs.msg import String
+from sensor_msgs.msg import LaserScan
+from geometry_msgs.msg import PoseStamped
+import json
+from typing import Dict, List, Any
+
+class AdvancedTaskDecomposer:
+    def __init__(self, api_key: str):
+        openai.api_key = api_key
+        rospy.init_node('advanced_task_decomposer')
+
+        # Subscribers
+        self.task_sub = rospy.Subscriber('/natural_language_tasks', String, self.task_callback)
+        self.laser_sub = rospy.Subscriber('/scan', LaserScan, self.scan_callback)
+        self.pose_sub = rospy.Subscriber('/current_pose', PoseStamped, self.pose_callback)
+
+        # Publishers
+        self.plan_pub = rospy.Publisher('/decomposed_plan', String, queue_size=10)
+
+        # Store robot state
+        self.current_pose = None
+        self.scan_data = None
+
+        # Define robot context
+        self.robot_context = {
+            "capabilities": {
+                "navigation": ["move_to", "navigate", "go_to"],
+                "manipulation": ["pick_up", "place", "grasp", "release"],
+                "perception": ["detect", "find", "scan", "identify"],
+                "communication": ["speak", "listen"]
+            },
+            "environment": {
+                "locations": ["kitchen", "bedroom", "living_room", "office", "dining_room"],
+                "objects": ["cup", "book", "bottle", "phone", "keys", "plate"]
+            },
+            "current_pose": None,
+            "obstacles": []
+        }
+
+    def scan_callback(self, msg: LaserScan):
+        """Update scan data"""
+        self.scan_data = msg
+
+    def pose_callback(self, msg: PoseStamped):
+        """Update current pose"""
+        self.current_pose = msg
+
+    def task_callback(self, msg: String):
+        """Process incoming task with context"""
+        natural_language_task = msg.data
+
+        # Update context with current state
+        if self.current_pose:
+            self.robot_context["current_pose"] = {
+                "x": self.current_pose.pose.position.x,
+                "y": self.current_pose.pose.position.y
+            }
+
+        if self.scan_data:
+            # Extract obstacle information from laser scan
+            obstacles = self.extract_obstacles(self.scan_data)
+            self.robot_context["obstacles"] = obstacles
+
+        plan = self.decompose_task_with_context(natural_language_task)
+        self.publish_plan(plan)
+
+    def extract_obstacles(self, scan: LaserScan) -> List[Dict]:
+        """Extract obstacles from laser scan data"""
+        obstacles = []
+        # Simplified obstacle detection - in practice, this would be more sophisticated
+        for i, range_val in enumerate(scan.ranges):
+            if 0 < range_val < 1.0:  # Obstacle within 1 meter
+                angle = scan.angle_min + i * scan.angle_increment
+                x = range_val * cos(angle)
+                y = range_val * sin(angle)
+                obstacles.append({"x": x, "y": y, "distance": range_val})
+        return obstacles
+
+    def decompose_task_with_context(self, task: str) -> List[Dict]:
+        """Decompose task with environmental context"""
+        prompt = f"""
+        You are an advanced robot task planner. Decompose the following natural language task into a sequence of robotic actions, considering the current environmental context.
+
+        Robot Context:
+        - Capabilities: {json.dumps(self.robot_context["capabilities"])}
+        - Environment: {json.dumps(self.robot_context["environment"])}
+        - Current Position: {json.dumps(self.robot_context["current_pose"])}
+        - Obstacles: {json.dumps(self.robot_context["obstacles"])}
+
+        Task: {task}
+
+        Please return a JSON list of actions with the following format:
+        [
+            {{
+                "action": "action_name",
+                "parameters": {{
+                    "param1": "value1",
+                    "param2": "value2"
+                }},
+                "description": "Brief description of what this action does",
+                "constraints": ["list of constraints to consider during execution"]
+            }}
+        ]
+
+        Consider the following:
+        1. Environmental constraints (obstacles, locations)
+        2. Robot capabilities and limitations
+        3. Safety considerations
+        4. Logical sequence of actions
+
+        Only return the JSON list, nothing else.
+        """
+
+        try:
+            response = openai.ChatCompletion.create(
+                model="gpt-4",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.1
+            )
+
+            plan_text = response.choices[0].message.content.strip()
+
+            # Clean up any markdown formatting
+            if plan_text.startswith('```json'):
+                plan_text = plan_text[7:]
+            if plan_text.endswith('```'):
+                plan_text = plan_text[:-3]
+
+            plan = json.loads(plan_text)
+            return plan
+        except Exception as e:
+            rospy.logerr(f"Error decomposing task: {e}")
+            return []
+
+    def publish_plan(self, plan: List[Dict]):
+        """Publish the decomposed plan"""
+        plan_msg = String()
+        plan_msg.data = json.dumps(plan)
+        self.plan_pub.publish(plan_msg)
+
+if __name__ == '__main__':
+    api_key = rospy.get_param('~openai_api_key', 'your-api-key-here')
+    decomposer = AdvancedTaskDecomposer(api_key)
+
+    try:
+        rospy.spin()
+    except rospy.ROSInterruptException:
+        pass
+```
+
+## Natural Language to ROS 2 Action Mapping
+
+Mapping natural language to ROS 2 actions requires understanding the semantics of both the language and the robotic actions.
+
+### Semantic Action Mapper
+
+Here's an implementation that maps natural language to specific ROS 2 actions:
+
+```python
+import rospy
+from actionlib import SimpleActionClient
+from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
+from geometry_msgs.msg import PoseStamped
+from std_msgs.msg import String
+import json
+from typing import Dict, Any
+
+class SemanticActionMapper:
+    def __init__(self):
+        rospy.init_node('semantic_action_mapper')
+
+        # Subscribers
+        self.plan_sub = rospy.Subscriber('/decomposed_plan', String, self.plan_callback)
+
+        # Action clients
+        self.move_base_client = SimpleActionClient('move_base', MoveBaseAction)
+
+        # Semantic mapping
+        self.action_semantics = {
+            "move_to": {
+                "ros_action": "move_base",
+                "parameter_mapping": {
+                    "location": "target_pose",
+                    "x": "pose.position.x",
+                    "y": "pose.position.y",
+                    "theta": "pose.orientation.z"
+                }
+            },
+            "navigate_to": {
+                "ros_action": "move_base",
+                "parameter_mapping": {
+                    "location": "target_pose",
+                    "x": "pose.position.x",
+                    "y": "pose.position.y",
+                    "theta": "pose.orientation.z"
+                }
+            },
+            "go_to": {
+                "ros_action": "move_base",
+                "parameter_mapping": {
+                    "location": "target_pose",
+                    "x": "pose.position.x",
+                    "y": "pose.position.y",
+                    "theta": "pose.orientation.z"
+                }
+            }
+        }
+
+        # Location mapping (in a real system, this would come from semantic mapping)
+        self.location_map = {
+            "kitchen": {"x": 1.0, "y": 2.0, "theta": 0.0},
+            "bedroom": {"x": 3.0, "y": 1.0, "theta": 0.0},
+            "living_room": {"x": 0.0, "y": 0.0, "theta": 0.0},
+            "office": {"x": 2.0, "y": 3.0, "theta": 0.0}
+        }
+
+    def plan_callback(self, msg: String):
+        """Process incoming plan and execute actions"""
+        try:
+            plan = json.loads(msg.data)
+            for action in plan:
+                self.execute_action(action)
+        except json.JSONDecodeError as e:
+            rospy.logerr(f"Error parsing plan: {e}")
+
+    def execute_action(self, action: Dict[str, Any]):
+        """Execute a single action based on semantics"""
+        action_name = action["action"]
+
+        if action_name in self.action_semantics:
+            semantics = self.action_semantics[action_name]
+            ros_action = semantics["ros_action"]
+
+            if ros_action == "move_base":
+                self.execute_navigation_action(action)
+        else:
+            rospy.logwarn(f"Unknown action: {action_name}")
+
+    def execute_navigation_action(self, action: Dict[str, Any]):
+        """Execute navigation action"""
+        params = action["parameters"]
+
+        # Get target pose
+        target_pose = None
+
+        # Check if location is specified
+        if "location" in params:
+            location_name = params["location"]
+            if location_name in self.location_map:
+                location_data = self.location_map[location_name]
+                target_pose = self.create_pose(location_data["x"], location_data["y"], location_data["theta"])
+
+        # If location not specified, check for x, y coordinates
+        elif "x" in params and "y" in params:
+            x = float(params["x"])
+            y = float(params["y"])
+            theta = float(params.get("theta", 0.0))
+            target_pose = self.create_pose(x, y, theta)
+
+        if target_pose:
+            # Send goal to move_base
+            goal = MoveBaseGoal()
+            goal.target_pose = target_pose
+
+            rospy.loginfo(f"Sending navigation goal to {params}")
+
+            # Wait for server
+            self.move_base_client.wait_for_server()
+
+            # Send goal
+            self.move_base_client.send_goal(goal)
+
+            # Wait for result
+            finished_within_time = self.move_base_client.wait_for_result(rospy.Duration(30))
+
+            if not finished_within_time:
+                self.move_base_client.cancel_goal()
+                rospy.logerr("Navigation action timed out")
+            else:
+                state = self.move_base_client.get_state()
+                if state == 3:  # Goal reached
+                    rospy.loginfo("Navigation goal reached successfully")
+                else:
+                    rospy.logerr(f"Navigation failed with state: {state}")
+        else:
+            rospy.logerr(f"Could not determine target pose for action: {action}")
+
+    def create_pose(self, x: float, y: float, theta: float) -> PoseStamped:
+        """Create a PoseStamped message from coordinates"""
+        pose = PoseStamped()
+        pose.header.frame_id = "map"
+        pose.header.stamp = rospy.Time.now()
+        pose.pose.position.x = x
+        pose.pose.position.y = y
+        pose.pose.orientation.z = theta
+        return pose
+
+if __name__ == '__main__':
+    mapper = SemanticActionMapper()
+
+    try:
+        rospy.spin()
+    except rospy.ROSInterruptException:
+        pass
+```
+
+## Context-Aware Planning
+
+Context-aware planning considers the current state of the robot and its environment when generating plans.
+
+### Context Manager
+
+Here's an implementation of a context manager that tracks relevant information:
+
+```python
+import rospy
+from sensor_msgs.msg import LaserScan, Image
+from geometry_msgs.msg import PoseStamped, Twist
+from nav_msgs.msg import Odometry
+from std_msgs.msg import String
+import json
+from typing import Dict, Any, Optional
+
+class ContextManager:
+    def __init__(self):
+        rospy.init_node('context_manager')
+
+        # Subscribers for various sensor data
+        self.odom_sub = rospy.Subscriber('/odom', Odometry, self.odom_callback)
+        self.scan_sub = rospy.Subscriber('/scan', LaserScan, self.scan_callback)
+        self.pose_sub = rospy.Subscriber('/current_pose', PoseStamped, self.pose_callback)
+        self.battery_sub = rospy.Subscriber('/battery_status', String, self.battery_callback)
+
+        # Publisher for context updates
+        self.context_pub = rospy.Publisher('/robot_context', String, queue_size=10)
+
+        # Robot state
+        self.current_pose = None
+        self.odom_data = None
+        self.scan_data = None
+        self.battery_level = 100.0  # Default to full battery
+        self.last_update = rospy.Time.now()
+
+        # Context update rate
+        self.update_rate = rospy.Rate(1)  # Update context once per second
+
+    def odom_callback(self, msg: Odometry):
+        """Update odometry data"""
+        self.odom_data = msg
+
+    def scan_callback(self, msg: LaserScan):
+        """Update laser scan data"""
+        self.scan_data = msg
+
+    def pose_callback(self, msg: PoseStamped):
+        """Update current pose"""
+        self.current_pose = msg
+
+    def battery_callback(self, msg: String):
+        """Update battery level"""
+        try:
+            battery_data = json.loads(msg.data)
+            self.battery_level = battery_data.get('level', 100.0)
+        except json.JSONDecodeError:
+            rospy.logwarn("Could not parse battery status message")
+
+    def get_context(self) -> Dict[str, Any]:
+        """Get current robot context"""
+        context = {
+            "timestamp": rospy.Time.now().to_sec(),
+            "pose": None,
+            "velocity": None,
+            "battery_level": self.battery_level,
+            "obstacles": [],
+            "navigation_status": "idle"
+        }
+
+        if self.current_pose:
+            context["pose"] = {
+                "x": self.current_pose.pose.position.x,
+                "y": self.current_pose.pose.position.y,
+                "z": self.current_pose.pose.position.z,
+                "orientation": {
+                    "x": self.current_pose.pose.orientation.x,
+                    "y": self.current_pose.pose.orientation.y,
+                    "z": self.current_pose.pose.orientation.z,
+                    "w": self.current_pose.pose.orientation.w
+                }
+            }
+
+        if self.odom_data:
+            context["velocity"] = {
+                "linear": {
+                    "x": self.odom_data.twist.twist.linear.x,
+                    "y": self.odom_data.twist.twist.linear.y,
+                    "z": self.odom_data.twist.twist.linear.z
+                },
+                "angular": {
+                    "x": self.odom_data.twist.twist.angular.x,
+                    "y": self.odom_data.twist.twist.angular.y,
+                    "z": self.odom_data.twist.twist.angular.z
+                }
+            }
+
+        if self.scan_data:
+            # Extract relevant obstacle information
+            obstacles = self.extract_relevant_obstacles(self.scan_data)
+            context["obstacles"] = obstacles
+
+        return context
+
+    def extract_relevant_obstacles(self, scan: LaserScan) -> List[Dict]:
+        """Extract obstacles that are relevant for planning"""
+        obstacles = []
+
+        # Only consider obstacles within 2 meters and in front of robot
+        for i, range_val in enumerate(scan.ranges):
+            if 0 < range_val < 2.0:  # Obstacle within 2 meters
+                angle = scan.angle_min + i * scan.angle_increment
+                # Only consider obstacles in front of robot (forward 90 degrees)
+                if -0.785 < angle < 0.785:  # -45 to +45 degrees
+                    x = range_val * math.cos(angle)
+                    y = range_val * math.sin(angle)
+                    obstacles.append({
+                        "x": x,
+                        "y": y,
+                        "distance": range_val,
+                        "angle": angle
+                    })
+
+        return obstacles
+
+    def run(self):
+        """Run the context manager"""
+        while not rospy.is_shutdown():
+            context = self.get_context()
+
+            # Publish context
+            context_msg = String()
+            context_msg.data = json.dumps(context, indent=2)
+            self.context_pub.publish(context_msg)
+
+            self.update_rate.sleep()
+
+if __name__ == '__main__':
+    context_manager = ContextManager()
+
+    try:
+        context_manager.run()
+    except rospy.ROSInterruptException:
+        pass
+```
+
+## Hands-On Exercise: Language-Guided Task Execution
+
+### Objective
+Implement a language-guided planning system that can decompose natural language tasks into executable robotic actions, considering environmental context.
+
+### Requirements
+- Integrate an LLM for task decomposition
+- Create a semantic mapper for natural language to ROS 2 actions
+- Implement context awareness for planning
+- Test the system with complex natural language commands
+
+### Steps
+1. Set up LLM integration for task decomposition
+2. Create semantic mapping from natural language to ROS 2 actions
+3. Implement context awareness for planning
+4. Test with complex commands like "Go to the kitchen and bring me a cup"
+
+### Solution Outline
+1. Use the AdvancedTaskDecomposer to break down complex tasks
+2. Use the SemanticActionMapper to execute specific actions
+3. Use the ContextManager to provide environmental awareness
+4. Test with multi-step commands that require planning
+
+## Summary
+
+In this chapter, we've explored language-guided planning using large language models for task decomposition and natural language to ROS 2 action mapping. We've learned how to:
+- Integrate LLMs for sophisticated task decomposition
+- Map natural language commands to specific ROS 2 actions
+- Create context-aware planning systems
+- Implement language-guided behavior with environmental awareness
+
+In the next chapter, we'll combine all these elements into a comprehensive capstone project: an autonomous humanoid system with integrated vision, language, and action capabilities.
